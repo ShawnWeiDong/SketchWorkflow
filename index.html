@@ -2,6 +2,9 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sketch工具</title>
     <style>
         /* A simple CSS reset that removes the default margin, padding, and border of all elements */
         * {
@@ -137,6 +140,7 @@
             top: 0;
             width: 100vw;
             height: 60px;
+            min-height: 60px; /* 确保最小高度 */
             background-color: #F5F5F5;
             z-index: 1000;
             display: flex;
@@ -144,20 +148,21 @@
             justify-content: flex-start;
             align-items: center;
             padding-left: 16px;
+            box-sizing: border-box; /* 确保padding不影响总高度 */
         }
         
         
         /* icon-button 基础样式 */
         .icon-button {
             display: flex;
-            width: var(--semantic-size-touch-target, 36px);
-            height: var(--semantic-size-touch-target, 36px);
-            padding: var(--semantic-spacing-xxs, 4px);
+            width: 36px; /* 固定尺寸 */
+            height: 36px; /* 固定尺寸 */
+            padding: 4px; /* 固定padding */
             justify-content: center;
             align-items: center;
             flex-shrink: 0;
             border-radius: 2px;
-            background: var(--generic-color-transparent, rgba(250, 250, 250, 0.00));
+            background: rgba(250, 250, 250, 0.00);
             border: none;
             cursor: pointer;
             margin: 0 8px 0 0;
@@ -190,24 +195,47 @@
         @media only screen and (max-width: 430px) {
             .toolbar {
                 padding-left: 8px;
+                height: 60px; /* 保持一致高度 */
             }
+            
             .icon-button {
-                margin: 0 4px 0 0;
+                margin: 0 8px 0 0; /* 增加间距确保可点击 */
+                width: 40px; /* 移动设备上增大点击区域 */
+                height: 40px;
+            }
+
+            /* 图标尺寸保持不变 */
+            .icon-svg {
+                width: 24px;
+                height: 24px;
+            }
+
+            .snackbar {
+                padding: 10px 12px;
+                font-size: 14px;
             }
         }
 
         .snackbar {
-            position: absolute;
+            position: fixed; /* 改为固定定位 */
             left: 50%;
             transform: translateX(-50%);
             background: white;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            max-width: 300px;
+            width: 300px; /* 固定宽度 */
+            max-width: 90vw; /* 最大宽度 */
             z-index: 2000;
             top: 80px;
-            padding: 8px 12px;
+            padding: 12px 16px; /* 增加内边距 */
             border-radius: 4px;
-            /* Add rounded corners */
+            font-size: 16px; /* 确保字体大小 */
+            text-align: center; /* 居中文本 */
+            box-sizing: border-box; /* 确保padding不影响总宽度 */
+        }
+
+        .snackbar p {
+            margin: 0;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -229,7 +257,7 @@
         </button>
 
         <button class="icon-button">
-            <img class="icon-svg" src="assets/line.svg" alt="Line 图标"/>
+            <img class="icon-svg" src="assets/Line.svg" alt="Line 图标"/>
         </button>
         
     </div>
@@ -297,14 +325,72 @@
                 });
                 
                 // 触摸事件
-                document.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                document.addEventListener('touchstart', (e) => {
+                    // 检查触摸点是否在工具按钮上，如果是则不阻止默认行为
+                    const target = e.target;
+                    if (target.closest('.icon-button') || target.classList.contains('icon-svg')) {
+                        return; // 允许按钮的默认点击行为
+                    }
+                    this.handleTouchStart(e);
+                });
                 document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-                document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+                document.addEventListener('touchend', (e) => {
+                    // 同样检查触摸结束点是否在按钮上
+                    const target = e.target;
+                    if (target.closest('.icon-button') || target.classList.contains('icon-svg')) {
+                        return; // 允许按钮的默认点击行为
+                    }
+                    this.handleTouchEnd(e);
+                });
                 
-                // 阻止页面拖动刷新
-                window.addEventListener('touchmove', (e) => {
+                // 添加鼠标事件支持
+                document.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                
+                // 阻止页面拖动刷新 - 只对触摸事件
+                document.addEventListener('touchmove', (e) => {
+                    // 不要阻止工具栏上的触摸移动
+                    if (e.target.closest('.toolbar') || e.target.closest('.icon-button')) {
+                        return;
+                    }
                     e.preventDefault();
                 }, { passive: false });
+            }
+            
+            // 将光标定位到屏幕中央
+            positionCursorAtCenter() {
+                this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
+                this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+                // 初始不显示光标，只有选择工具后才显示
+                this.cursor.style.display = 'none';
+                
+                this.snackbar.style.display = 'block';
+                this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+            }
+            
+            // 新增：检查位置是否在toolbar区域
+            isPositionInToolbarArea(x, y) {
+                // 获取工具栏元素
+                const toolbar = document.querySelector('.toolbar');
+                if (!toolbar) return false;
+                
+                // 获取工具栏的位置和尺寸
+                const rect = toolbar.getBoundingClientRect();
+                
+                // 检查位置是否在工具栏区域内
+                return (
+                    x >= rect.left && 
+                    x <= rect.right && 
+                    y >= rect.top && 
+                    y <= rect.bottom
+                );
+            }
+            
+            // 新增：检查元素是否在toolbar区域
+            isInToolbarArea(element) {
+                return element.closest('.toolbar') || element.classList.contains('icon-button') || 
+                       element.classList.contains('icon-svg');
             }
             
             // 处理工具选择
@@ -313,6 +399,7 @@
                 if (button.classList.contains('active')) {
                     button.classList.remove('active');
                     this.activeShape = null;
+                    this.cursor.style.display = 'none'; // 取消选择时隐藏光标
                     this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
                 } else {
                     // 移除其他按钮的active状态
@@ -334,29 +421,97 @@
                         'line': '绘制直线: 触摸并移动光标，抬起手指放置起点'
                     };
                     this.snackbar.innerHTML = `<p>${tipMessages[this.activeShape]}</p>`;
+                    
+                    // 选择工具后，在屏幕中央显示光标
+                    this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
+                    this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+                    this.cursor.style.display = 'block';
                 }
             }
             
-            // 将光标定位到屏幕中央
-            positionCursorAtCenter() {
-                this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
-                this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+            // 新增：处理鼠标按下事件
+            handleMouseDown(e) {
+                // 检查位置是否在工具栏区域
+                if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
+                    this.cursor.style.display = 'none';
+                    return;
+                }
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 光标跟随鼠标移动，向上偏移60像素
+                this.cursor.style.top = (e.clientY - 35 - 60) + 'px';
+                this.cursor.style.left = (e.clientX - 35) + 'px';
                 this.cursor.style.display = 'block';
                 
-                this.snackbar.style.display = 'block';
-                this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+                // 如果是第二次点击且第一个点已经放置，准备绘制形状
+                if (this.firstCornerPlaced) {
+                    this.isDrawing = true;
+                    
+                    const secondPointMessages = {
+                        'square': '移动并点击鼠标放置矩形的第二个点',
+                        'circle': '移动并点击鼠标确定圆的半径',
+                        'line': '移动并点击鼠标放置线的终点'
+                    };
+                    this.snackbar.innerHTML = `<p>${secondPointMessages[this.activeShape]}</p>`;
+                }
+            }
+            
+            // 新增：处理鼠标移动事件
+            handleMouseMove(e) {
+                // 检查位置是否在工具栏区域
+                if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
+                    this.cursor.style.display = 'none';
+                    return;
+                }
+                
+                // 如果没有选择绘图工具，不执行操作但仍然显示光标
+                if (!this.activeShape) {
+                    return; // 未选择工具时不显示光标
+                }
+                
+                // 光标跟随鼠标移动，向上偏移60像素
+                this.cursor.style.top = (e.clientY - 35 - 60) + 'px';
+                this.cursor.style.left = (e.clientX - 35) + 'px';
+                this.cursor.style.display = 'block';
+                
+                // 如果正在绘制形状，根据不同形状类型进行处理
+                if (this.isDrawing && this.start) {
+                    const currentX = e.clientX;
+                    const currentY = e.clientY;
+                    
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.updateSquare(currentX, currentY);
+                            break;
+                        case 'circle':
+                            this.updateCircle(currentX, currentY);
+                            break;
+                        case 'line':
+                            this.updateLine(currentX, currentY);
+                            break;
+                    }
+                }
             }
             
             // 处理触摸开始事件
             handleTouchStart(e) {
                 e.preventDefault();
                 
+                // 如果触摸在工具栏区域，隐藏光标
+                if (this.isInToolbarArea(e.target)) {
+                    this.cursor.style.display = 'none';
+                    return;
+                }
+                
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
-                // 光标跟随手指移动
-                this.cursor.style.top = (e.touches[0].clientY - 35) + 'px';
+                // 光标跟随手指移动，向上偏移60像素
+                this.cursor.style.top = (e.touches[0].clientY - 35 - 60) + 'px';
                 this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
+                this.cursor.style.display = 'block';
                 
                 // 如果是第二次触摸且第一个点已经放置，准备绘制形状
                 if (this.firstCornerPlaced) {
@@ -375,17 +530,25 @@
             handleTouchMove(e) {
                 e.preventDefault();
                 
+                // 如果触摸在工具栏区域，隐藏光标
+                if (this.isInToolbarArea(e.target)) {
+                    this.cursor.style.display = 'none';
+                    return;
+                }
+                
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
-                // 光标跟随手指移动
-                this.cursor.style.top = (e.touches[0].clientY - 35) + 'px';
+                // 光标跟随手指移动，向上偏移60像素
+                this.cursor.style.top = (e.touches[0].clientY - 35 - 60) + 'px';
                 this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
+                this.cursor.style.display = 'block';
                 
                 // 如果正在绘制形状，根据不同形状类型进行处理
                 if (this.isDrawing && this.start) {
-                    const currentX = e.touches[0].clientX;
-                    const currentY = e.touches[0].clientY;
+                    // 使用光标位置（保持偏移）作为当前点
+                    const currentX = parseInt(this.cursor.style.left) + 35;
+                    const currentY = parseInt(this.cursor.style.top) + 35;
                     
                     switch (this.activeShape) {
                         case 'square':
@@ -416,8 +579,9 @@
                     this.currentShape.style.position = 'absolute';
                     document.body.appendChild(this.currentShape);
                     
-                    // 记录起始点
+                    // 记录起始点 - 直接使用光标中心位置，保持偏移
                     const cursorX = parseInt(this.cursor.style.left) + 35;
+                    // 不再加回60px偏移，直接使用光标位置
                     const cursorY = parseInt(this.cursor.style.top) + 35;
                     this.start = { x: cursorX, y: cursorY };
                     
@@ -451,12 +615,10 @@
                     // 根据形状类型设置最终样式
                     switch (this.activeShape) {
                         case 'square':
-                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.2)';
-                            this.currentShape.style.border = '2px solid #0696D7';
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
                             break;
                         case 'circle':
-                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.2)';
-                            this.currentShape.style.border = '2px solid #0696D7';
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
                             break;
                         case 'line':
                             // 线条已经有了样式
@@ -475,6 +637,82 @@
                 }
             }
             
+            // 新增：处理鼠标松开事件
+            handleMouseUp(e) {
+                // 检查位置是否在工具栏区域
+                if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
+                    return;
+                }
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 第一次抬起，放置第一个点
+                if (!this.firstCornerPlaced) {
+                    // 创建新形状
+                    this.currentShape = document.createElement('div');
+                    this.currentShape.id = 'shape' + (++this.shapeCount);
+                    this.currentShape.style.position = 'absolute';
+                    document.body.appendChild(this.currentShape);
+                    
+                    // 记录起始点 - 直接使用光标中心位置，保持偏移
+                    const cursorX = parseInt(this.cursor.style.left) + 35;
+                    // 不再加回60px偏移，直接使用光标位置
+                    const cursorY = parseInt(this.cursor.style.top) + 35;
+                    this.start = { x: cursorX, y: cursorY };
+                    
+                    // 根据形状类型初始化
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.initSquare(cursorX, cursorY);
+                            break;
+                        case 'circle':
+                            this.initCircle(cursorX, cursorY);
+                            break;
+                        case 'line':
+                            this.initLine(cursorX, cursorY);
+                            break;
+                    }
+                    
+                    this.firstCornerPlaced = true;
+                    
+                    const firstPointPlacedMessages = {
+                        'square': '第一个点已放置，再次点击并移动鼠标放置第二个点',
+                        'circle': '圆心已放置，再次点击并移动鼠标确定半径',
+                        'line': '起点已放置，再次点击并移动鼠标放置终点'
+                    };
+                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
+                } 
+                // 第二次抬起，完成形状
+                else if (this.isDrawing) {
+                    this.isDrawing = false;
+                    this.firstCornerPlaced = false;
+                    
+                    // 根据形状类型设置最终样式
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
+                            break;
+                        case 'circle':
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
+                            break;
+                        case 'line':
+                            // 线条已经有了样式
+                            break;
+                    }
+                    
+                    this.currentShape = null;
+                    this.start = null;
+                    
+                    const completionMessages = {
+                        'square': '矩形已完成，点击并移动以放置新矩形的第一个点',
+                        'circle': '圆形已完成，点击并移动以放置新圆的圆心',
+                        'line': '直线已完成，点击并移动以放置新线的起点'
+                    };
+                    this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
+                }
+            }
+            
             // 初始化矩形
             initSquare(x, y) {
                 this.currentShape.className = 'rectangle';
@@ -483,6 +721,9 @@
                 this.currentShape.style.width = '0px';
                 this.currentShape.style.height = '0px';
                 this.currentShape.style.display = 'block';
+                this.currentShape.style.border = '2px solid #0696D7';
+                this.currentShape.style.boxSizing = 'border-box';
+                this.currentShape.style.background = 'rgba(6, 150, 215, 0.1)';
             }
             
             // 更新矩形大小
@@ -517,6 +758,9 @@
                 this.currentShape.style.height = '0px';
                 this.currentShape.style.display = 'block';
                 this.currentShape.style.transform = 'translate(-50%, -50%)';
+                this.currentShape.style.border = '2px solid #0696D7';
+                this.currentShape.style.boxSizing = 'border-box';
+                this.currentShape.style.background = 'rgba(6, 150, 215, 0.1)';
             }
             
             // 更新圆形大小
@@ -542,6 +786,7 @@
                 this.currentShape.style.backgroundColor = '#0696D7';
                 this.currentShape.style.display = 'block';
                 this.currentShape.style.transformOrigin = 'top left';
+                this.currentShape.style.opacity = '0.8'; // 线条使用不透明度
             }
             
             // 更新线条
