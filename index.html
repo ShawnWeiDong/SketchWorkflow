@@ -366,7 +366,7 @@
                 this.cursor.style.display = 'none';
                 
                 this.snackbar.style.display = 'block';
-                this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+                this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
             }
             
             // 新增：检查位置是否在toolbar区域
@@ -400,7 +400,7 @@
                     button.classList.remove('active');
                     this.activeShape = null;
                     this.cursor.style.display = 'none'; // 取消选择时隐藏光标
-                    this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+                    this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
                 } else {
                     // 移除其他按钮的active状态
                     document.querySelectorAll('.icon-button').forEach(btn => {
@@ -416,9 +416,9 @@
                     
                     // 更新提示信息
                     const tipMessages = {
-                        'square': '绘制矩形: 触摸并移动光标，抬起手指放置第一个点',
-                        'circle': '绘制圆形: 触摸并移动光标，抬起手指放置圆心',
-                        'line': '绘制直线: 触摸并移动光标，抬起手指放置起点'
+                        'square': 'Draw a rectangle: touch and move the cursor, lift your finger to place the first point',
+                        'circle': 'Draw a circle: touch and move the cursor, lift your finger to place the center',
+                        'line': 'Draw a line: touch and move the cursor, lift your finger to place the starting point'
                     };
                     this.snackbar.innerHTML = `<p>${tipMessages[this.activeShape]}</p>`;
                     
@@ -450,9 +450,9 @@
                     this.isDrawing = true;
                     
                     const secondPointMessages = {
-                        'square': '移动并点击鼠标放置矩形的第二个点',
-                        'circle': '移动并点击鼠标确定圆的半径',
-                        'line': '移动并点击鼠标放置线的终点'
+                        'square': 'Move and click the mouse to place the second point of the rectangle',
+                        'circle': 'Move and click the mouse to determine the radius of the circle',
+                        'line': 'Move and click the mouse to place the end point of the line'
                     };
                     this.snackbar.innerHTML = `<p>${secondPointMessages[this.activeShape]}</p>`;
                 }
@@ -518,9 +518,9 @@
                     this.isDrawing = true;
                     
                     const secondPointMessages = {
-                        'square': '移动并抬起手指放置矩形的第二个点',
-                        'circle': '移动并抬起手指确定圆的半径',
-                        'line': '移动并抬起手指放置线的终点'
+                        'square': 'Move and lift your finger to place the second point of the rectangle',
+                        'circle': 'Move and lift your finger to determine the radius of the circle',
+                        'line': 'Move and lift your finger to place the end point of the line'
                     };
                     this.snackbar.innerHTML = `<p>${secondPointMessages[this.activeShape]}</p>`;
                 }
@@ -601,9 +601,9 @@
                     this.firstCornerPlaced = true;
                     
                     const firstPointPlacedMessages = {
-                        'square': '第一个点已放置，再次触摸并移动放置第二个点',
-                        'circle': '圆心已放置，再次触摸并移动确定半径',
-                        'line': '起点已放置，再次触摸并移动放置终点'
+                        'square': 'The first point has been placed, touch and move again to place the second point',
+                        'circle': 'The center has been placed, touch and move again to determine the radius',
+                        'line': 'The starting point has been placed, touch and move again to place the end point'
                     };
                     this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
                 } 
@@ -629,9 +629,9 @@
                     this.start = null;
                     
                     const completionMessages = {
-                        'square': '矩形已完成，触摸并移动以放置新矩形的第一个点',
-                        'circle': '圆形已完成，触摸并移动以放置新圆的圆心',
-                        'line': '直线已完成，触摸并移动以放置新线的起点'
+                        'square': 'The rectangle has been completed, touch and move again to place the first point of the new rectangle',
+                        'circle': 'The circle has been completed, touch and move again to place the center of the new circle',
+                        'line': 'The line has been completed, touch and move again to place the starting point of the new line'
                     };
                     this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
                 }
@@ -677,9 +677,9 @@
                     this.firstCornerPlaced = true;
                     
                     const firstPointPlacedMessages = {
-                        'square': '第一个点已放置，再次点击并移动鼠标放置第二个点',
-                        'circle': '圆心已放置，再次点击并移动鼠标确定半径',
-                        'line': '起点已放置，再次点击并移动鼠标放置终点'
+                        'square': 'The first point has been placed, touch and move again to place the second point',
+                        'circle': 'The center has been placed, touch and move again to determine the radius',
+                        'line': 'The starting point has been placed, touch and move again to place the end point'
                     };
                     this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
                 } 
@@ -705,9 +705,9 @@
                     this.start = null;
                     
                     const completionMessages = {
-                        'square': '矩形已完成，点击并移动以放置新矩形的第一个点',
-                        'circle': '圆形已完成，点击并移动以放置新圆的圆心',
-                        'line': '直线已完成，点击并移动以放置新线的起点'
+                        'square': 'The rectangle has been completed, click and move to place the first point of the new rectangle',
+                        'circle': 'The circle has been completed, click and move to place the center of the new circle',
+                        'line': 'The line has been completed, click and move to place the starting point of the new line'
                     };
                     this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
                 }
