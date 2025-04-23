@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        /* A simple CSS reset that removes the default margin, padding, and border of all elements */
+        * {
+            margin: 0;
+        }
+
+        /*
+          5. Improve media defaults
+        */
+        img,
+        picture,
+        video,
+        canvas,
+        svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        /*
+          6. Remove built-in form typography styles
+        */
+        input,
+        button,
+        textarea,
+        select {
+            font: inherit;
+        }
+
+        /*
+          7. Avoid text overflows
+        */
+        p,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            overflow-wrap: break-word;
+        }
+
+        /*
+          8. Create a root stacking context
+        */
+        #root,
+        #__next {
+            isolation: isolate;
+        }
+
+        code,
+        kbd,
+        samp {
+            font-family: monospace, monospace;
+            /* 1 */
+            font-size: 1em;
+            /* 2 */
+        }
+
+        p {
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+        }
+
+
+
+        @supports (-webkit-touch-callout: none) {
+            body {
+                -webkit-user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                /* Disable tap highlight */
+            }
+        }
+
+        html {
+            -webkit-user-select: none;
+            /* Disable text selection */
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            /* Disable tap highlight */
+        }
+
+        #cursor {
+            position: absolute;
+            display: none;
+            z-index: 1000;
+        }
+
+        .rectangle {
+            position: absolute;
+            border: 2px solid #0696D7;
+            display: none;
+        }
+
+        /* CSS */
+        #grid-container {
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            overflow: auto;
+            z-index: 0;
+        }
+
+        .grid-item {
+            position: absolute;
+            border: 1px solid rgba(203, 203, 203, 0.20);
+            box-sizing: border-box;
+            z-index: 0;
+        }
+
+        .grid-item.thick-right {
+            border-right-width: 2px;
+            z-index: 0;
+
+        }
+
+        .grid-item.thick-bottom {
+            border-bottom-width: 2px;
+            z-index: 0;
+        }
+
+        .middle-vertical {
+            border-right-color: green !important;
+            z-index: 100;
+        }
+
+        .middle-horizontal {
+            border-bottom-color: red !important;
+            z-index: 100;
+        }
+
+        .toolbar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 60px;
+            background-color: #F5F5F5;
+            z-index: 1000;
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+            padding-left: 16px;
+        }
+        
+        
+        /* icon-button 基础样式 */
+        .icon-button {
+            display: flex;
+            width: var(--semantic-size-touch-target, 36px);
+            height: var(--semantic-size-touch-target, 36px);
+            padding: var(--semantic-spacing-xxs, 4px);
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            border-radius: 2px;
+            background: var(--generic-color-transparent, rgba(250, 250, 250, 0.00));
+            border: none;
+            cursor: pointer;
+            margin: 0 8px 0 0;
+        }
+        
+        /* hover状态 - 使用伪类 */
+        .icon-button:hover:not(.active) {
+            background: rgba(128, 128, 128, 0.10);
+        }
+        
+        /* pressed状态 - 使用伪类 */
+        .icon-button:active:not(.active) {
+            background: rgba(128, 128, 128, 0.20);
+        }
+        
+        /* on状态 - 使用类选择器 */
+        .icon-button.active {
+            border: 1px solid rgba(6, 150, 215, 0.50);
+            background: rgba(205, 234, 247, 0.60);    
+        }
+        
+        /* 图标样式 */
+        .icon-svg {
+            width: 24px;
+            height: 24px;
+            fill: #333;
+        }
+        
+        /* 根据媒体查询调整按钮间距 */
+        @media only screen and (max-width: 430px) {
+            .toolbar {
+                padding-left: 8px;
+            }
+            .icon-button {
+                margin: 0 4px 0 0;
+            }
+        }
+
+        .snackbar {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            max-width: 300px;
+            z-index: 2000;
+            top: 80px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            /* Add rounded corners */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="snackbar">
+        <p><code>Doubletap + hold</code> to accesss precise
+            cursor.</p>
+    </div>
+    <div class="toolbar">
+        <!-- 三个初始状态的按钮 -->
+
+        <button class="icon-button">
+            <img class="icon-svg" src="assets/Square.svg" alt="Square 图标"/>
+        </button>
+
+        <button class="icon-button">
+            <img class="icon-svg" src="assets/Circle.svg" alt="Circle 图标"/>
+        </button>
+
+        <button class="icon-button">
+            <img class="icon-svg" src="assets/line.svg" alt="Line 图标"/>
+        </button>
+        
+    </div>
+    
+    <svg id="cursor" width="71" height="71" viewBox="0 0 71 71" fill="none" xmlns="http://www.w3.org/2000/svg" >
+        <path d="M36 7L36 4L35 4L35 7L36 7Z" fill="white"/>
+        <path d="M64 36L67 36L67 35L64 35L64 36Z" fill="white"/>
+        <path d="M36 18V13H35V18H36Z" fill="white"/>
+        <path d="M53 36L58 36L58 35L53 35L53 36Z" fill="white"/>
+        <path d="M36 30V24H35V30H36Z" fill="white"/>
+        <path d="M41 36L47 36L47 35L41 35L41 36Z" fill="white"/>
+        <path d="M36 13V8L35 8V13H36Z" fill="#3C3C3C"/>
+        <path d="M58 36L63 36L63 35L58 35L58 36Z" fill="#3C3C3C"/>
+        <path d="M35 0L35 3L36 3L36 -8.74228e-08L35 0Z" fill="#3C3C3C"/>
+        <path d="M71 35L68 35L68 36L71 36L71 35Z" fill="#3C3C3C"/>
+        <path d="M36 24V18H35V24H36Z" fill="#3C3C3C"/>
+        <path d="M47 36L53 36L53 35L47 35L47 36Z" fill="#3C3C3C"/>
+        <path d="M35 64L35 67L36 67L36 64L35 64Z" fill="white"/>
+        <path d="M7 35L4 35L4 36L7 36L7 35Z" fill="white"/>
+        <path d="M35 53L35 58L36 58L36 53L35 53Z" fill="white"/>
+        <path d="M18 35L13 35L13 36L18 36L18 35Z" fill="white"/>
+        <path d="M35 41L35 47L36 47L36 41L35 41Z" fill="white"/>
+        <path d="M30 35L24 35L24 36L30 36L30 35Z" fill="white"/>
+        <path d="M35 58L35 63L36 63L36 58L35 58Z" fill="#3C3C3C"/>
+        <path d="M13 35L8 35L8 36L13 36L13 35Z" fill="#3C3C3C"/>
+        <path d="M36 71L36 68H35L35 71H36Z" fill="#3C3C3C"/>
+        <path d="M0 36L3 36L3 35L4.37114e-08 35L0 36Z" fill="#3C3C3C"/>
+        <path d="M35 47L35 53L36 53L36 47L35 47Z" fill="#3C3C3C"/>
+        <path d="M24 35L18 35L18 36L24 36L24 35Z" fill="#3C3C3C"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M29.327 30.638C29 31.2798 29 32.1198 29 33.8V37.2C29 38.8802 29 39.7202 29.327 40.362C29.6146 40.9265 30.0735 41.3854 30.638 41.673C31.2798 42 32.1198 42 33.8 42H37.2C38.8802 42 39.7202 42 40.362 41.673C40.9265 41.3854 41.3854 40.9265 41.673 40.362C42 39.7202 42 38.8802 42 37.2V33.8C42 32.1198 42 31.2798 41.673 30.638C41.3854 30.0735 40.9265 29.6146 40.362 29.327C39.7202 29 38.8802 29 37.2 29H33.8C32.1198 29 31.2798 29 30.638 29.327C30.0735 29.6146 29.6146 30.0735 29.327 30.638ZM30.218 31.092C30 31.5198 30 32.0799 30 33.2V37.8C30 38.9201 30 39.4802 30.218 39.908C30.4097 40.2843 30.7157 40.5903 31.092 40.782C31.5198 41 32.0799 41 33.2 41H37.8C38.9201 41 39.4802 41 39.908 40.782C40.2843 40.5903 40.5903 40.2843 40.782 39.908C41 39.4802 41 38.9201 41 37.8V33.2C41 32.0799 41 31.5198 40.782 31.092C40.5903 30.7157 40.2843 30.4097 39.908 30.218C39.4802 30 38.9201 30 37.8 30H33.2C32.0799 30 31.5198 30 31.092 30.218C30.7157 30.4097 30.4097 30.7157 30.218 31.092Z" fill="white"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M30.218 31.092C30 31.5198 30 32.0799 30 33.2V37.8C30 38.9201 30 39.4802 30.218 39.908C30.4097 40.2843 30.7157 40.5903 31.092 40.782C31.5198 41 32.0799 41 33.2 41H37.8C38.9201 41 39.4802 41 39.908 40.782C40.2843 40.5903 40.5903 40.2843 40.782 39.908C41 39.4802 41 38.9201 41 37.8V33.2C41 32.0799 41 31.5198 40.782 31.092C40.5903 30.7157 40.2843 30.4097 39.908 30.218C39.4802 30 38.9201 30 37.8 30H33.2C32.0799 30 31.5198 30 31.092 30.218C30.7157 30.4097 30.4097 30.7157 30.218 31.092ZM31.109 31.546C31 31.7599 31 32.0399 31 32.6V38.4C31 38.9601 31 39.2401 31.109 39.454C31.2049 39.6422 31.3578 39.7951 31.546 39.891C31.7599 40 32.0399 40 32.6 40H38.4C38.9601 40 39.2401 40 39.454 39.891C39.6422 39.7951 39.7951 39.6422 39.891 39.454C40 39.2401 40 38.9601 40 38.4V32.6C40 32.0399 40 31.7599 39.891 31.546C39.7951 31.3578 39.6422 31.2049 39.454 31.109C39.2401 31 38.9601 31 38.4 31H32.6C32.0399 31 31.7599 31 31.546 31.109C31.3578 31.2049 31.2049 31.3578 31.109 31.546Z" fill="#3C3C3C"/>
+        </svg>
+
+    <div id="grid-container"></div>
+
+
+    <script>
+        // 形状绘制管理器类
+        class ShapeDrawer {
+            constructor() {
+                // DOM元素
+                this.cursor = document.getElementById('cursor');
+                this.snackbar = document.querySelector('.snackbar');
+                
+                // 状态变量
+                this.start = null;
+                this.isDrawing = false;
+                this.firstCornerPlaced = false;
+                this.shapeCount = 0;
+                this.currentShape = null;
+                this.activeShape = null; // 当前激活的形状类型: 'square', 'circle', 'line'
+                
+                // 初始化
+                this.setupEventListeners();
+                this.positionCursorAtCenter();
+            }
+            
+            // 设置事件监听器
+            setupEventListeners() {
+                // 工具按钮点击事件
+                document.querySelectorAll('.icon-button').forEach((button, index) => {
+                    button.addEventListener('click', () => {
+                        this.handleToolSelection(button, index);
+                    });
+                });
+                
+                // 触摸事件
+                document.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+                
+                // 阻止页面拖动刷新
+                window.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
+            }
+            
+            // 处理工具选择
+            handleToolSelection(button, index) {
+                // 如果已经是active状态，则取消选择
+                if (button.classList.contains('active')) {
+                    button.classList.remove('active');
+                    this.activeShape = null;
+                    this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+                } else {
+                    // 移除其他按钮的active状态
+                    document.querySelectorAll('.icon-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // 为当前按钮添加active类
+                    button.classList.add('active');
+                    
+                    // 设置当前形状类型
+                    const shapeTypes = ['square', 'circle', 'line'];
+                    this.activeShape = shapeTypes[index];
+                    
+                    // 更新提示信息
+                    const tipMessages = {
+                        'square': '绘制矩形: 触摸并移动光标，抬起手指放置第一个点',
+                        'circle': '绘制圆形: 触摸并移动光标，抬起手指放置圆心',
+                        'line': '绘制直线: 触摸并移动光标，抬起手指放置起点'
+                    };
+                    this.snackbar.innerHTML = `<p>${tipMessages[this.activeShape]}</p>`;
+                }
+            }
+            
+            // 将光标定位到屏幕中央
+            positionCursorAtCenter() {
+                this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
+                this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+                this.cursor.style.display = 'block';
+                
+                this.snackbar.style.display = 'block';
+                this.snackbar.innerHTML = '<p>请先选择一个绘图工具</p>';
+            }
+            
+            // 处理触摸开始事件
+            handleTouchStart(e) {
+                e.preventDefault();
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 光标跟随手指移动
+                this.cursor.style.top = (e.touches[0].clientY - 35) + 'px';
+                this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
+                
+                // 如果是第二次触摸且第一个点已经放置，准备绘制形状
+                if (this.firstCornerPlaced) {
+                    this.isDrawing = true;
+                    
+                    const secondPointMessages = {
+                        'square': '移动并抬起手指放置矩形的第二个点',
+                        'circle': '移动并抬起手指确定圆的半径',
+                        'line': '移动并抬起手指放置线的终点'
+                    };
+                    this.snackbar.innerHTML = `<p>${secondPointMessages[this.activeShape]}</p>`;
+                }
+            }
+            
+            // 处理触摸移动事件
+            handleTouchMove(e) {
+                e.preventDefault();
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 光标跟随手指移动
+                this.cursor.style.top = (e.touches[0].clientY - 35) + 'px';
+                this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
+                
+                // 如果正在绘制形状，根据不同形状类型进行处理
+                if (this.isDrawing && this.start) {
+                    const currentX = e.touches[0].clientX;
+                    const currentY = e.touches[0].clientY;
+                    
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.updateSquare(currentX, currentY);
+                            break;
+                        case 'circle':
+                            this.updateCircle(currentX, currentY);
+                            break;
+                        case 'line':
+                            this.updateLine(currentX, currentY);
+                            break;
+                    }
+                }
+            }
+            
+            // 处理触摸结束事件
+            handleTouchEnd(e) {
+                e.preventDefault();
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 第一次抬起，放置第一个点
+                if (!this.firstCornerPlaced) {
+                    // 创建新形状
+                    this.currentShape = document.createElement('div');
+                    this.currentShape.id = 'shape' + (++this.shapeCount);
+                    this.currentShape.style.position = 'absolute';
+                    document.body.appendChild(this.currentShape);
+                    
+                    // 记录起始点
+                    const cursorX = parseInt(this.cursor.style.left) + 35;
+                    const cursorY = parseInt(this.cursor.style.top) + 35;
+                    this.start = { x: cursorX, y: cursorY };
+                    
+                    // 根据形状类型初始化
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.initSquare(cursorX, cursorY);
+                            break;
+                        case 'circle':
+                            this.initCircle(cursorX, cursorY);
+                            break;
+                        case 'line':
+                            this.initLine(cursorX, cursorY);
+                            break;
+                    }
+                    
+                    this.firstCornerPlaced = true;
+                    
+                    const firstPointPlacedMessages = {
+                        'square': '第一个点已放置，再次触摸并移动放置第二个点',
+                        'circle': '圆心已放置，再次触摸并移动确定半径',
+                        'line': '起点已放置，再次触摸并移动放置终点'
+                    };
+                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
+                } 
+                // 第二次抬起，完成形状
+                else if (this.isDrawing) {
+                    this.isDrawing = false;
+                    this.firstCornerPlaced = false;
+                    
+                    // 根据形状类型设置最终样式
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.2)';
+                            this.currentShape.style.border = '2px solid #0696D7';
+                            break;
+                        case 'circle':
+                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.2)';
+                            this.currentShape.style.border = '2px solid #0696D7';
+                            break;
+                        case 'line':
+                            // 线条已经有了样式
+                            break;
+                    }
+                    
+                    this.currentShape = null;
+                    this.start = null;
+                    
+                    const completionMessages = {
+                        'square': '矩形已完成，触摸并移动以放置新矩形的第一个点',
+                        'circle': '圆形已完成，触摸并移动以放置新圆的圆心',
+                        'line': '直线已完成，触摸并移动以放置新线的起点'
+                    };
+                    this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
+                }
+            }
+            
+            // 初始化矩形
+            initSquare(x, y) {
+                this.currentShape.className = 'rectangle';
+                this.currentShape.style.left = x + 'px';
+                this.currentShape.style.top = y + 'px';
+                this.currentShape.style.width = '0px';
+                this.currentShape.style.height = '0px';
+                this.currentShape.style.display = 'block';
+            }
+            
+            // 更新矩形大小
+            updateSquare(currentX, currentY) {
+                const width = currentX - this.start.x;
+                const height = currentY - this.start.y;
+                
+                this.currentShape.style.width = Math.abs(width) + 'px';
+                this.currentShape.style.height = Math.abs(height) + 'px';
+                
+                // 处理负值情况
+                if (width < 0) {
+                    this.currentShape.style.left = currentX + 'px';
+                } else {
+                    this.currentShape.style.left = this.start.x + 'px';
+                }
+                
+                if (height < 0) {
+                    this.currentShape.style.top = currentY + 'px';
+                } else {
+                    this.currentShape.style.top = this.start.y + 'px';
+                }
+            }
+            
+            // 初始化圆形
+            initCircle(x, y) {
+                this.currentShape.className = 'circle';
+                this.currentShape.style.borderRadius = '50%';
+                this.currentShape.style.left = x + 'px';
+                this.currentShape.style.top = y + 'px';
+                this.currentShape.style.width = '0px';
+                this.currentShape.style.height = '0px';
+                this.currentShape.style.display = 'block';
+                this.currentShape.style.transform = 'translate(-50%, -50%)';
+            }
+            
+            // 更新圆形大小
+            updateCircle(currentX, currentY) {
+                // 计算半径 (欧几里得距离)
+                const radius = Math.sqrt(
+                    Math.pow(currentX - this.start.x, 2) + 
+                    Math.pow(currentY - this.start.y, 2)
+                );
+                
+                // 设置圆的直径
+                this.currentShape.style.width = (radius * 2) + 'px';
+                this.currentShape.style.height = (radius * 2) + 'px';
+            }
+            
+            // 初始化线条
+            initLine(x, y) {
+                this.currentShape.className = 'line';
+                this.currentShape.style.left = x + 'px';
+                this.currentShape.style.top = y + 'px';
+                this.currentShape.style.width = '0px';
+                this.currentShape.style.height = '2px'; // 线条宽度
+                this.currentShape.style.backgroundColor = '#0696D7';
+                this.currentShape.style.display = 'block';
+                this.currentShape.style.transformOrigin = 'top left';
+            }
+            
+            // 更新线条
+            updateLine(currentX, currentY) {
+                // 计算两点间距离
+                const length = Math.sqrt(
+                    Math.pow(currentX - this.start.x, 2) + 
+                    Math.pow(currentY - this.start.y, 2)
+                );
+                
+                // 计算旋转角度
+                const angle = Math.atan2(
+                    currentY - this.start.y,
+                    currentX - this.start.x
+                ) * 180 / Math.PI;
+                
+                // 设置线条长度和角度
+                this.currentShape.style.width = length + 'px';
+                this.currentShape.style.transform = `rotate(${angle}deg)`;
+            }
+        }
+
+        // 格子绘制函数
+        function drawGrid() {
+            const gridContainer = document.getElementById('grid-container');
+            const squareSize = Math.floor(Math.min(window.innerWidth, window.innerHeight) / 35);
+            const squaresPerRow = Math.floor(window.innerWidth / squareSize);
+            const squaresPerColumn = Math.floor(window.innerHeight / squareSize);
+
+            // 创建网格
+            for (let y = 0; y < squaresPerColumn; y++) {
+                for (let x = 0; x < squaresPerRow; x++) {
+                    const div = document.createElement('div');
+                    div.classList.add('grid-item');
+                    if ((x + 1) % 5 === 0) div.classList.add('thick-right');
+                    if ((y + 1) % 5 === 0) div.classList.add('thick-bottom');
+                    if (x === Math.floor(squaresPerRow / 2)) div.classList.add('middle-vertical');
+                    if (y === Math.floor(squaresPerColumn / 2)) div.classList.add('middle-horizontal');
+                    div.style.width = `${squareSize}px`;
+                    div.style.height = `${squareSize}px`;
+                    div.style.left = `${x * squareSize}px`;
+                    div.style.top = `${y * squareSize}px`;
+                    gridContainer.appendChild(div);
+                }
+            }
+        }
+
+        // 窗口加载
+        window.onload = function() {
+            drawGrid();
+            new ShapeDrawer();
+        };
+    </script>
+</body>
+
+</html>
