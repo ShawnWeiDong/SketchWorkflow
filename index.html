@@ -265,6 +265,51 @@
         #proposal-dropdown:hover {
             border-color: #0696D7;
         }
+
+        /* 添加维度标注的样式 */
+        .dimension-label {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ccc;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-size: 12px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 500;
+            color: #0696D7;
+            white-space: nowrap;
+            text-align: center;
+            transform: translate(-50%, -50%);
+        }
+
+        .dimension-line {
+            position: absolute;
+            background-color: #CCCCCC; /* 改为浅灰色 */
+            height: 1px;
+            pointer-events: none;
+            z-index: 450;
+        }
+
+        .dimension-marker {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: #0696D7;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 450;
+            transform: translate(-50%, -50%);
+        }
+
+        .extension-line {
+            position: absolute;
+            background-color: #CCCCCC; /* 浅灰色 */
+            width: 1px;
+            height: 10px;
+            pointer-events: none;
+            z-index: 440;
+        }
     </style>
 </head>
 
@@ -469,6 +514,14 @@
                 this.currentShape = null;
                 this.activeShape = null;
                 
+                // 维度标注相关
+                this.dimensionElements = {
+                    labels: [],
+                    lines: [],
+                    markers: []
+                };
+                this.currentDimension = null;
+                
                 // 初始化当前方案配置
                 this.currentProposal = this.proposalDropdown.value;
                 this.updateConfig();
@@ -488,7 +541,15 @@
                 this.gridSize = config.gridSize;
                 this.snapThreshold = config.snapThreshold;
                 
-                // 如果需要，可以在这里更新其他与方案相关的配置
+                // 重置工具选择
+                document.querySelectorAll('.icon-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.activeShape = null;
+                this.cursor.style.display = 'none';
+                this.snapCursor.style.display = 'none';
+                this.isDrawing = false;
+                this.firstCornerPlaced = false;
                 
                 // 重绘网格
                 this.redrawGrid();
@@ -534,19 +595,28 @@
                 
                 // 方案下拉菜单变更事件
                 this.proposalDropdown.addEventListener('change', () => {
+                    const previousProposal = this.currentProposal;
                     this.currentProposal = this.proposalDropdown.value;
+                    
+                    // 更新配置 (这会重置工具选择和网格)
                     this.updateConfig();
                     
-                    // 更新提示信息
-                    this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
+                    // 清除所有的维度标注
+                    this.clearAllDimensions();
                     
-                    // 重置工具选择
-                    document.querySelectorAll('.icon-button').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
+                    // 清空画布，移除所有已绘制的图形
+                    this.clearAllShapes();
+                    
+                    // 重置状态
+                    this.start = null;
+                    this.isDrawing = false;
+                    this.firstCornerPlaced = false;
+                    this.shapeCount = 0;
+                    this.currentShape = null;
                     this.activeShape = null;
-                    this.cursor.style.display = 'none';
-                    this.snapCursor.style.display = 'none';
+                    
+                    // 更新提示信息
+                    this.snackbar.innerHTML = `<p>Switched to ${this.currentProposal}</p>`;
                 });
                 
                 // 触摸事件
@@ -557,9 +627,24 @@
                         target.closest('.proposal-selector')) {
                         return; // 允许按钮和下拉菜单的默认点击行为
                     }
-                    this.handleTouchStart(e);
+                    
+                    // 根据不同的proposal处理不同的触摸逻辑
+                    if (this.currentProposal === 'proposal1') {
+                        this.handleTouchStartProposal1(e);
+                    } else {
+                        this.handleTouchStart(e);
+                    }
                 });
-                document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                
+                document.addEventListener('touchmove', (e) => {
+                    // 根据不同的proposal处理不同的触摸移动逻辑
+                    if (this.currentProposal === 'proposal1') {
+                        this.handleTouchMoveProposal1(e);
+                    } else {
+                        this.handleTouchMove(e);
+                    }
+                });
+                
                 document.addEventListener('touchend', (e) => {
                     // 同样检查触摸结束点是否在按钮上
                     const target = e.target;
@@ -567,7 +652,13 @@
                         target.closest('.proposal-selector')) {
                         return; // 允许按钮和下拉菜单的默认点击行为
                     }
-                    this.handleTouchEnd(e);
+                    
+                    // 根据不同的proposal处理不同的触摸结束逻辑
+                    if (this.currentProposal === 'proposal1') {
+                        this.handleTouchEndProposal1(e);
+                    } else {
+                        this.handleTouchEnd(e);
+                    }
                 });
                 
                 // 添加鼠标事件支持
@@ -578,8 +669,7 @@
                 // 阻止页面拖动刷新 - 只对触摸事件
                 document.addEventListener('touchmove', (e) => {
                     // 不要阻止工具栏上的触摸移动
-                    if (e.target.closest('.toolbar') || e.target.closest('.icon-button') || 
-                        e.target.closest('.proposal-selector')) {
+                    if (e.target.closest('.toolbar') || e.target.closest('.icon-button')) {
                         return;
                     }
                     e.preventDefault();
@@ -637,6 +727,9 @@
                     this.cursor.style.display = 'none';
                     this.snapCursor.style.display = 'none';
                     this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
+                    
+                    // 清除所有维度标注
+                    this.clearAllDimensions();
                 } else {
                     // 移除其他按钮的active状态
                     document.querySelectorAll('.icon-button').forEach(btn => {
@@ -650,21 +743,31 @@
                     const shapeTypes = ['square', 'circle', 'line'];
                     this.activeShape = shapeTypes[index];
                     
-                    // 更新提示信息 - 使用配置中的消息
+                    // 更新提示信息
                     const tipMessage = this.config.shapes[this.activeShape].initMessages.first;
                     this.snackbar.innerHTML = `<p>${tipMessage}</p>`;
                     
-                    // 选择工具后，在屏幕中央显示默认光标
-                    const centerY = (window.innerHeight / 2 - 35);
-                    const centerX = (window.innerWidth / 2 - 35);
+                    // 根据不同的proposal处理光标显示逻辑
+                    if (this.currentProposal === 'proposal2') {
+                        // Proposal 2: 选择工具后，立即在屏幕中央显示光标
+                        const centerY = (window.innerHeight / 2 - 35);
+                        const centerX = (window.innerWidth / 2 - 35);
+                        
+                        this.cursor.style.top = centerY + 'px';
+                        this.cursor.style.left = centerX + 'px';
+                        this.snapCursor.style.top = centerY + 'px';
+                        this.snapCursor.style.left = centerX + 'px';
+                        
+                        this.cursor.style.display = 'block';
+                        this.snapCursor.style.display = 'none';
+                    } else {
+                        // Proposal 1: 选择工具后不显示光标，等待触摸事件
+                        this.cursor.style.display = 'none';
+                        this.snapCursor.style.display = 'none';
+                    }
                     
-                    this.cursor.style.top = centerY + 'px';
-                    this.cursor.style.left = centerX + 'px';
-                    this.snapCursor.style.top = centerY + 'px';
-                    this.snapCursor.style.left = centerX + 'px';
-                    
-                    this.cursor.style.display = 'block';
-                    this.snapCursor.style.display = 'none';
+                    // 清除所有维度标注
+                    this.clearAllDimensions();
                 }
             }
             
@@ -892,15 +995,21 @@
                 }
             }
             
-            // 处理触摸结束事件
-            handleTouchEnd(e) {
-                e.preventDefault();
+            // 修改：处理鼠标松开事件
+            handleMouseUp(e) {
+                // 检查位置是否在工具栏区域
+                if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
+                    return;
+                }
                 
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
                 // 第一次抬起，放置第一个点
                 if (!this.firstCornerPlaced) {
+                    // 如果要开始新图形，清除所有现有的维度标注
+                    this.clearAllDimensions();
+                    
                     // 创建新形状
                     this.currentShape = document.createElement('div');
                     this.currentShape.id = 'shape' + (++this.shapeCount);
@@ -970,18 +1079,18 @@
                 }
             }
             
-            // 修改：处理鼠标松开事件
-            handleMouseUp(e) {
-                // 检查位置是否在工具栏区域
-                if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
-                    return;
-                }
+            // 处理触摸结束事件
+            handleTouchEnd(e) {
+                e.preventDefault();
                 
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
                 // 第一次抬起，放置第一个点
                 if (!this.firstCornerPlaced) {
+                    // 如果要开始新图形，清除所有现有的维度标注
+                    this.clearAllDimensions();
+                    
                     // 创建新形状
                     this.currentShape = document.createElement('div');
                     this.currentShape.id = 'shape' + (++this.shapeCount);
@@ -1073,17 +1182,25 @@
                 this.currentShape.style.border = this.config.shapes.square.style.border;
                 
                 // 处理负值情况
+                let left = this.start.x;
+                let top = this.start.y;
+                
                 if (width < 0) {
                     this.currentShape.style.left = currentX + 'px';
+                    left = currentX;
                 } else {
                     this.currentShape.style.left = this.start.x + 'px';
                 }
                 
                 if (height < 0) {
                     this.currentShape.style.top = currentY + 'px';
+                    top = currentY;
                 } else {
                     this.currentShape.style.top = this.start.y + 'px';
                 }
+                
+                // 更新维度标注
+                this.updateRectangleDimensions(left, top, left + Math.abs(width), top + Math.abs(height));
             }
             
             // 初始化圆形
@@ -1112,6 +1229,9 @@
                 this.currentShape.style.width = (radius * 2) + 'px';
                 this.currentShape.style.height = (radius * 2) + 'px';
                 this.currentShape.style.border = this.config.shapes.circle.style.border;
+                
+                // 更新维度标注
+                this.updateCircleDimensions(this.start.x, this.start.y, radius);
             }
             
             // 初始化线条
@@ -1143,6 +1263,9 @@
                 // 设置线条长度和角度
                 this.currentShape.style.width = length + 'px';
                 this.currentShape.style.transform = `rotate(${angle}deg)`;
+                
+                // 更新维度标注
+                this.updateLineDimensions(this.start.x, this.start.y, currentX, currentY);
             }
             
             // 添加位置标记点
@@ -1161,6 +1284,534 @@
                 marker.style.zIndex = '100';
                 document.body.appendChild(marker);
                 return marker;
+            }
+
+            // 创建维度标注
+            createDimensionLabel() {
+                // 清除之前的当前维度标注
+                this.clearCurrentDimension();
+                
+                // 创建新的维度标注
+                this.currentDimension = {
+                    label: document.createElement('div'),
+                    line: document.createElement('div'),
+                    startMarker: document.createElement('div'),
+                    endMarker: document.createElement('div'),
+                    // 特定矩形维度的元素会在需要时创建
+                    widthLabel: null,
+                    heightLabel: null,
+                    widthLine: null,
+                    heightLine: null,
+                    // 辅助延长线
+                    extensionLines: []
+                };
+                
+                // 设置基本样式
+                this.currentDimension.label.className = 'dimension-label';
+                this.currentDimension.line.className = 'dimension-line';
+                this.currentDimension.startMarker.className = 'dimension-marker';
+                this.currentDimension.endMarker.className = 'dimension-marker';
+                
+                // 添加到文档
+                document.body.appendChild(this.currentDimension.label);
+                document.body.appendChild(this.currentDimension.line);
+                document.body.appendChild(this.currentDimension.startMarker);
+                document.body.appendChild(this.currentDimension.endMarker);
+                
+                // 保存引用以便之后清理
+                this.dimensionElements.labels.push(this.currentDimension.label);
+                this.dimensionElements.lines.push(this.currentDimension.line);
+                this.dimensionElements.markers.push(this.currentDimension.startMarker);
+                this.dimensionElements.markers.push(this.currentDimension.endMarker);
+            }
+            
+            // 更新矩形的维度标注
+            updateRectangleDimensions(x1, y1, x2, y2) {
+                if (!this.currentDimension) {
+                    this.createDimensionLabel();
+                }
+                
+                // 计算宽度和高度
+                const width = Math.abs(x2 - x1);
+                const height = Math.abs(y2 - y1);
+                
+                // 确定矩形的左上角和右下角坐标
+                const left = Math.min(x1, x2);
+                const top = Math.min(y1, y2);
+                const right = Math.max(x1, x2);
+                const bottom = Math.max(y1, y2);
+                
+                // 为矩形创建两个维度标注（宽度和高度）
+                if (!this.currentDimension.widthLabel) {
+                    // 创建宽度标注
+                    this.currentDimension.widthLabel = document.createElement('div');
+                    this.currentDimension.widthLabel.className = 'dimension-label';
+                    document.body.appendChild(this.currentDimension.widthLabel);
+                    this.dimensionElements.labels.push(this.currentDimension.widthLabel);
+                    
+                    // 创建高度标注
+                    this.currentDimension.heightLabel = document.createElement('div');
+                    this.currentDimension.heightLabel.className = 'dimension-label';
+                    document.body.appendChild(this.currentDimension.heightLabel);
+                    this.dimensionElements.labels.push(this.currentDimension.heightLabel);
+                    
+                    // 创建宽度线
+                    this.currentDimension.widthLine = document.createElement('div');
+                    this.currentDimension.widthLine.className = 'dimension-line';
+                    document.body.appendChild(this.currentDimension.widthLine);
+                    this.dimensionElements.lines.push(this.currentDimension.widthLine);
+                    
+                    // 创建高度线
+                    this.currentDimension.heightLine = document.createElement('div');
+                    this.currentDimension.heightLine.className = 'dimension-line';
+                    document.body.appendChild(this.currentDimension.heightLine);
+                    this.dimensionElements.lines.push(this.currentDimension.heightLine);
+                    
+                    // 创建垂直延伸线 (4条: 左下, 右下, 右上, 右下)
+                    for (let i = 0; i < 4; i++) {
+                        const extLine = document.createElement('div');
+                        extLine.className = 'extension-line';
+                        document.body.appendChild(extLine);
+                        this.currentDimension.extensionLines.push(extLine);
+                        this.dimensionElements.lines.push(extLine);
+                    }
+                }
+                
+                // 隐藏原来的通用标签和线条
+                this.currentDimension.label.style.display = 'none';
+                this.currentDimension.line.style.display = 'none';
+                
+                // 设置维度线的距离
+                const lineOffset = 15; // 从矩形边到线的距离
+                const extLength = 10; // 延伸线的长度
+                
+                // 更新宽度标注
+                this.currentDimension.widthLabel.textContent = `${Math.round(width)}px`;
+                this.currentDimension.widthLabel.style.display = 'block';
+                this.currentDimension.widthLabel.style.left = (left + width / 2) + 'px';
+                this.currentDimension.widthLabel.style.top = (bottom + lineOffset + 10) + 'px'; // 放在矩形下方
+                
+                // 更新高度标注
+                this.currentDimension.heightLabel.textContent = `${Math.round(height)}px`;
+                this.currentDimension.heightLabel.style.display = 'block';
+                this.currentDimension.heightLabel.style.left = (right + lineOffset + 10) + 'px'; // 放在矩形右侧
+                this.currentDimension.heightLabel.style.top = (top + height / 2) + 'px';
+                
+                // 更新宽度线
+                this.currentDimension.widthLine.style.display = 'block';
+                this.currentDimension.widthLine.style.width = width + 'px';
+                this.currentDimension.widthLine.style.left = left + 'px';
+                this.currentDimension.widthLine.style.top = (bottom + lineOffset) + 'px'; // 与矩形保持距离
+                this.currentDimension.widthLine.style.transform = 'rotate(0deg)';
+                
+                // 更新高度线
+                this.currentDimension.heightLine.style.display = 'block';
+                this.currentDimension.heightLine.style.width = height + 'px';
+                this.currentDimension.heightLine.style.left = (right + lineOffset) + 'px'; // 与矩形保持距离
+                this.currentDimension.heightLine.style.top = top + 'px';
+                this.currentDimension.heightLine.style.transform = 'rotate(90deg)';
+                this.currentDimension.heightLine.style.transformOrigin = 'left top';
+                
+                // 更新延伸线 - 宽度线的两端垂直延伸线
+                // 左侧垂直线
+                this.currentDimension.extensionLines[0].style.display = 'block';
+                this.currentDimension.extensionLines[0].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[0].style.left = left + 'px';
+                this.currentDimension.extensionLines[0].style.top = (bottom + lineOffset - extLength/2) + 'px';
+                
+                // 右侧垂直线
+                this.currentDimension.extensionLines[1].style.display = 'block';
+                this.currentDimension.extensionLines[1].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[1].style.left = right + 'px';
+                this.currentDimension.extensionLines[1].style.top = (bottom + lineOffset - extLength/2) + 'px';
+                
+                // 更新延伸线 - 高度线的两端水平延伸线
+                // 上部水平线
+                this.currentDimension.extensionLines[2].style.display = 'block';
+                this.currentDimension.extensionLines[2].style.width = extLength + 'px';
+                this.currentDimension.extensionLines[2].style.height = '1px';
+                this.currentDimension.extensionLines[2].style.left = (right + lineOffset - extLength/2) + 'px';
+                this.currentDimension.extensionLines[2].style.top = top + 'px';
+                
+                // 下部水平线
+                this.currentDimension.extensionLines[3].style.display = 'block';
+                this.currentDimension.extensionLines[3].style.width = extLength + 'px';
+                this.currentDimension.extensionLines[3].style.height = '1px';
+                this.currentDimension.extensionLines[3].style.left = (right + lineOffset - extLength/2) + 'px';
+                this.currentDimension.extensionLines[3].style.top = bottom + 'px';
+                
+                // 更新端点标记（左上角和右下角）
+                this.currentDimension.startMarker.style.left = left + 'px';
+                this.currentDimension.startMarker.style.top = top + 'px';
+                this.currentDimension.endMarker.style.left = right + 'px';
+                this.currentDimension.endMarker.style.top = bottom + 'px';
+            }
+            
+            // 更新圆形的维度标注
+            updateCircleDimensions(centerX, centerY, radius) {
+                if (!this.currentDimension) {
+                    this.createDimensionLabel();
+                }
+                
+                // 计算终点位置（与线条相似，从圆心到圆周上一点）
+                const endX = centerX + radius;
+                const endY = centerY;
+                
+                // 计算长度（取整的半径）
+                const roundedRadius = Math.round(radius);
+                
+                // 创建垂直延伸线
+                if (!this.currentDimension.extensionLines.length) {
+                    // 创建两条垂直延伸线
+                    for (let i = 0; i < 2; i++) {
+                        const extLine = document.createElement('div');
+                        extLine.className = 'extension-line';
+                        document.body.appendChild(extLine);
+                        this.currentDimension.extensionLines.push(extLine);
+                        this.dimensionElements.lines.push(extLine);
+                    }
+                }
+                
+                // 设置延伸线的长度
+                const extLength = 10;
+                
+                // 更新标签
+                this.currentDimension.label.textContent = `${roundedRadius}px`;
+                
+                // 计算标签位置（在线段中点上方）
+                const midX = (centerX + endX) / 2;
+                const midY = centerY - 20; // 放在线上方，距离更远
+                
+                this.currentDimension.label.style.left = midX + 'px';
+                this.currentDimension.label.style.top = midY + 'px';
+                
+                // 更新线条
+                this.currentDimension.line.style.display = 'block';
+                this.currentDimension.line.style.width = radius + 'px';
+                this.currentDimension.line.style.left = centerX + 'px';
+                this.currentDimension.line.style.top = centerY + 'px';
+                this.currentDimension.line.style.transformOrigin = 'left center';
+                this.currentDimension.line.style.transform = 'rotate(0deg)';
+                
+                // 更新起点垂直延伸线（圆心点处）
+                this.currentDimension.extensionLines[0].style.display = 'block';
+                this.currentDimension.extensionLines[0].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[0].style.left = centerX + 'px';
+                this.currentDimension.extensionLines[0].style.top = (centerY - extLength / 2) + 'px';
+                
+                // 更新终点垂直延伸线（圆周点处）
+                this.currentDimension.extensionLines[1].style.display = 'block';
+                this.currentDimension.extensionLines[1].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[1].style.left = endX + 'px';
+                this.currentDimension.extensionLines[1].style.top = (centerY - extLength / 2) + 'px';
+                
+                // 更新端点标记
+                this.currentDimension.startMarker.style.left = centerX + 'px';
+                this.currentDimension.startMarker.style.top = centerY + 'px';
+                this.currentDimension.endMarker.style.left = endX + 'px';
+                this.currentDimension.endMarker.style.top = centerY + 'px';
+            }
+            
+            // 更新线条的维度标注
+            updateLineDimensions(x1, y1, x2, y2) {
+                if (!this.currentDimension) {
+                    this.createDimensionLabel();
+                }
+                
+                // 创建垂直延伸线
+                if (!this.currentDimension.extensionLines.length) {
+                    // 创建两条垂直于线段的延伸线
+                    for (let i = 0; i < 2; i++) {
+                        const extLine = document.createElement('div');
+                        extLine.className = 'extension-line';
+                        document.body.appendChild(extLine);
+                        this.currentDimension.extensionLines.push(extLine);
+                        this.dimensionElements.lines.push(extLine);
+                    }
+                }
+                
+                // 计算长度并取整
+                const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                const roundedLength = Math.round(length);
+                
+                // 计算角度
+                const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                
+                // 计算垂直于线的角度
+                const perpAngle = angle + 90; // 垂直于线的角度（弧度）
+                const perpRadians = perpAngle * Math.PI / 180;
+                
+                // 设置延伸线的长度
+                const extLength = 10;
+                
+                // 更新标签
+                this.currentDimension.label.textContent = `${roundedLength}px`;
+                
+                // 计算标签位置 (线段中点上方一点)
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                const labelDistance = 20; // 标签到线的距离
+                
+                const labelX = midX + Math.cos(perpRadians) * labelDistance;
+                const labelY = midY + Math.sin(perpRadians) * labelDistance;
+                
+                this.currentDimension.label.style.left = labelX + 'px';
+                this.currentDimension.label.style.top = labelY + 'px';
+                
+                // 更新线条
+                this.currentDimension.line.style.display = 'block';
+                this.currentDimension.line.style.width = length + 'px';
+                this.currentDimension.line.style.left = x1 + 'px';
+                this.currentDimension.line.style.top = y1 + 'px';
+                this.currentDimension.line.style.transformOrigin = 'left center';
+                this.currentDimension.line.style.transform = `rotate(${angle}deg)`;
+                
+                // 更新起点垂直延伸线
+                this.currentDimension.extensionLines[0].style.display = 'block';
+                this.currentDimension.extensionLines[0].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[0].style.left = x1 + 'px';
+                this.currentDimension.extensionLines[0].style.top = (y1 - extLength / 2) + 'px';
+                this.currentDimension.extensionLines[0].style.transform = `rotate(${perpAngle}deg)`;
+                this.currentDimension.extensionLines[0].style.transformOrigin = 'center top';
+                
+                // 更新终点垂直延伸线
+                this.currentDimension.extensionLines[1].style.display = 'block';
+                this.currentDimension.extensionLines[1].style.height = extLength + 'px';
+                this.currentDimension.extensionLines[1].style.left = x2 + 'px';
+                this.currentDimension.extensionLines[1].style.top = (y2 - extLength / 2) + 'px';
+                this.currentDimension.extensionLines[1].style.transform = `rotate(${perpAngle}deg)`;
+                this.currentDimension.extensionLines[1].style.transformOrigin = 'center top';
+                
+                // 更新端点标记
+                this.currentDimension.startMarker.style.left = x1 + 'px';
+                this.currentDimension.startMarker.style.top = y1 + 'px';
+                this.currentDimension.endMarker.style.left = x2 + 'px';
+                this.currentDimension.endMarker.style.top = y2 + 'px';
+            }
+            
+            // 清除当前维度标注
+            clearCurrentDimension() {
+                if (this.currentDimension) {
+                    // 当前维度标注保持显示，不再是活动维度标注
+                    this.currentDimension = null;
+                }
+            }
+            
+            // 清除所有维度标注
+            clearAllDimensions() {
+                // 移除所有标签和线条
+                this.dimensionElements.labels.forEach(label => {
+                    if (label && label.parentNode) {
+                        label.parentNode.removeChild(label);
+                    }
+                });
+                this.dimensionElements.lines.forEach(line => {
+                    if (line && line.parentNode) {
+                        line.parentNode.removeChild(line);
+                    }
+                });
+                this.dimensionElements.markers.forEach(marker => {
+                    if (marker && marker.parentNode) {
+                        marker.parentNode.removeChild(marker);
+                    }
+                });
+                
+                // 重置数组
+                this.dimensionElements.labels = [];
+                this.dimensionElements.lines = [];
+                this.dimensionElements.markers = [];
+                this.currentDimension = null;
+            }
+
+            // 清除所有已绘制的图形
+            clearAllShapes() {
+                // 选择所有绘制的形状和标记点
+                const shapes = document.querySelectorAll('.rectangle, .circle, .line, .point-marker');
+                
+                // 逐个移除
+                shapes.forEach(shape => {
+                    if (shape && shape.parentNode) {
+                        shape.parentNode.removeChild(shape);
+                    }
+                });
+            }
+
+            // Proposal 1的触摸开始处理函数
+            handleTouchStartProposal1(e) {
+                e.preventDefault();
+                
+                // 如果触摸在工具栏区域，不处理
+                if (this.isInToolbarArea(e.target)) {
+                    return;
+                }
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 获取触摸位置
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY - 60; // 减去工具栏高度
+                
+                // 获取最近的网格点
+                const { x: snappedX, y: snappedY, isSnapping } = this.getNearestGridPoint(touchX, touchY);
+                
+                // 更新光标位置
+                const cursorTop = (snappedY - 35) + 'px';
+                const cursorLeft = (snappedX - 35) + 'px';
+                
+                this.cursor.style.top = cursorTop;
+                this.cursor.style.left = cursorLeft;
+                this.snapCursor.style.top = cursorTop;
+                this.snapCursor.style.left = cursorLeft;
+                
+                // 更新吸附状态（显示相应的光标）
+                this.updateSnappingState(isSnapping);
+                
+                // 显示光标
+                if (isSnapping) {
+                    this.snapCursor.style.display = 'block';
+                } else {
+                    this.cursor.style.display = 'block';
+                }
+                
+                // Proposal 1新逻辑：如果还没有放置第一个点，立即在光标位置放置第一个点
+                if (!this.firstCornerPlaced) {
+                    // 清除所有现有的维度标注
+                    this.clearAllDimensions();
+                    
+                    // 创建新形状
+                    this.currentShape = document.createElement('div');
+                    this.currentShape.id = 'shape' + (++this.shapeCount);
+                    this.currentShape.style.position = 'absolute';
+                    document.body.appendChild(this.currentShape);
+                    
+                    // 记录起始点 - 使用当前光标位置
+                    const cursorX = parseInt((isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const cursorY = parseInt((isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
+                    this.start = { x: cursorX, y: cursorY };
+                    
+                    // 添加起始点标记
+                    this.startMarker = this.addPointMarker(cursorX, cursorY, true);
+                    
+                    // 根据形状类型初始化
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.initSquare(cursorX, cursorY);
+                            break;
+                        case 'circle':
+                            this.initCircle(cursorX, cursorY);
+                            break;
+                        case 'line':
+                            this.initLine(cursorX, cursorY);
+                            break;
+                    }
+                    
+                    this.firstCornerPlaced = true;
+                    this.isDrawing = true;
+                    
+                    // 更新提示信息
+                    const firstPointPlacedMessage = this.config.shapes[this.activeShape].initMessages.firstPlaced;
+                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessage}</p>`;
+                }
+            }
+
+            // Proposal 1的触摸移动处理函数
+            handleTouchMoveProposal1(e) {
+                e.preventDefault();
+                
+                // 如果触摸在工具栏区域，隐藏光标
+                if (this.isInToolbarArea(e.target)) {
+                    this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
+                    return;
+                }
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // 计算触摸位置
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY - 60; // 减去工具栏高度
+                
+                // 获取最近的网格点
+                const { x: snappedX, y: snappedY, isSnapping } = this.getNearestGridPoint(touchX, touchY);
+                
+                // 更新光标位置
+                const cursorTop = (snappedY - 35) + 'px';
+                const cursorLeft = (snappedX - 35) + 'px';
+                
+                this.cursor.style.top = cursorTop;
+                this.cursor.style.left = cursorLeft;
+                this.snapCursor.style.top = cursorTop;
+                this.snapCursor.style.left = cursorLeft;
+                
+                // 更新吸附状态（显示相应的光标）
+                this.updateSnappingState(isSnapping);
+                
+                // 如果正在绘制形状，根据不同形状类型进行处理
+                if (this.isDrawing && this.start) {
+                    // 使用吸附后的位置作为当前点
+                    const currentX = snappedX;
+                    const currentY = snappedY;
+                    
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.updateSquare(currentX, currentY);
+                            break;
+                        case 'circle':
+                            this.updateCircle(currentX, currentY);
+                            break;
+                        case 'line':
+                            this.updateLine(currentX, currentY);
+                            break;
+                    }
+                }
+            }
+
+            // Proposal 1的触摸结束处理函数
+            handleTouchEndProposal1(e) {
+                e.preventDefault();
+                
+                // 如果没有选择绘图工具，不执行操作
+                if (!this.activeShape) return;
+                
+                // Proposal 1新逻辑：触摸结束时，直接完成图形绘制
+                if (this.firstCornerPlaced && this.isDrawing) {
+                    // 获取最后一个点的位置（当前光标位置）
+                    const endX = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const endY = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
+                    
+                    // 添加结束点标记（除了圆形外，因为圆形已经有中心点标记）
+                    if (this.activeShape !== 'circle') {
+                        this.addPointMarker(endX, endY, false);
+                    }
+                    
+                    // 根据形状类型设置最终样式
+                    switch (this.activeShape) {
+                        case 'square':
+                            this.currentShape.style.background = this.config.shapes.square.style.background;
+                            break;
+                        case 'circle':
+                            this.currentShape.style.background = this.config.shapes.circle.style.background;
+                            break;
+                        case 'line':
+                            // 线条已经有了样式
+                            break;
+                    }
+                    
+                    this.currentShape = null;
+                    this.start = null;
+                    this.isDrawing = false;
+                    this.firstCornerPlaced = false;
+                    
+                    // 隐藏光标，等待下一次触摸
+                    this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
+                    
+                    // 更新提示信息
+                    const completionMessage = this.config.shapes[this.activeShape].initMessages.completed;
+                    this.snackbar.innerHTML = `<p>${completionMessage}</p>`;
+                }
             }
         }
 
