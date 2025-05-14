@@ -85,10 +85,16 @@
             /* Disable tap highlight */
         }
 
-        #cursor {
+        #cursor, #snap-cursor {
             position: absolute;
             display: none;
             z-index: 1000;
+            transition: all 0.1s ease-out;
+        }
+        
+        /* 移除原有的吸附样式 */
+        #cursor.snapping {
+            /* 所有的吸附效果都通过切换SVG实现，不再使用CSS变换 */
         }
 
         .rectangle {
@@ -231,11 +237,33 @@
             font-size: 16px; /* 确保字体大小 */
             text-align: center; /* 居中文本 */
             box-sizing: border-box; /* 确保padding不影响总宽度 */
+            transition: opacity 0.2s ease-out; /* 添加提示信息的过渡效果 */
         }
 
         .snackbar p {
             margin: 0;
             line-height: 1.4;
+        }
+
+        .proposal-selector {
+            margin-left: auto; /* 将下拉菜单推到右侧 */
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        #proposal-dropdown {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: white;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+        
+        #proposal-dropdown:hover {
+            border-color: #0696D7;
         }
     </style>
 </head>
@@ -258,9 +286,17 @@
             <img class="icon-svg" src="assets/Line.svg" alt="Line 图标"/>
         </button>
         
+        <!-- 添加下拉菜单，用于选择方案 -->
+        <div class="proposal-selector">
+            <select id="proposal-dropdown">
+                <option value="proposal1" selected>Proposal 1</option>
+                <option value="proposal2">Proposal 2</option>
+            </select>
+        </div>
     </div>
     
-    <svg id="cursor" width="71" height="71" viewBox="0 0 71 71" fill="none" xmlns="http://www.w3.org/2000/svg" >
+    <!-- 标准光标 -->
+    <svg id="cursor" width="71" height="71" viewBox="0 0 71 71" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M36 7L36 4L35 4L35 7L36 7Z" fill="white"/>
         <path d="M64 36L67 36L67 35L64 35L64 36Z" fill="white"/>
         <path d="M36 18V13H35V18H36Z" fill="white"/>
@@ -287,18 +323,143 @@
         <path d="M24 35L18 35L18 36L24 36L24 35Z" fill="#3C3C3C"/>
         <path fill-rule="evenodd" clip-rule="evenodd" d="M29.327 30.638C29 31.2798 29 32.1198 29 33.8V37.2C29 38.8802 29 39.7202 29.327 40.362C29.6146 40.9265 30.0735 41.3854 30.638 41.673C31.2798 42 32.1198 42 33.8 42H37.2C38.8802 42 39.7202 42 40.362 41.673C40.9265 41.3854 41.3854 40.9265 41.673 40.362C42 39.7202 42 38.8802 42 37.2V33.8C42 32.1198 42 31.2798 41.673 30.638C41.3854 30.0735 40.9265 29.6146 40.362 29.327C39.7202 29 38.8802 29 37.2 29H33.8C32.1198 29 31.2798 29 30.638 29.327C30.0735 29.6146 29.6146 30.0735 29.327 30.638ZM30.218 31.092C30 31.5198 30 32.0799 30 33.2V37.8C30 38.9201 30 39.4802 30.218 39.908C30.4097 40.2843 30.7157 40.5903 31.092 40.782C31.5198 41 32.0799 41 33.2 41H37.8C38.9201 41 39.4802 41 39.908 40.782C40.2843 40.5903 40.5903 40.2843 40.782 39.908C41 39.4802 41 38.9201 41 37.8V33.2C41 32.0799 41 31.5198 40.782 31.092C40.5903 30.7157 40.2843 30.4097 39.908 30.218C39.4802 30 38.9201 30 37.8 30H33.2C32.0799 30 31.5198 30 31.092 30.218C30.7157 30.4097 30.4097 30.7157 30.218 31.092Z" fill="white"/>
         <path fill-rule="evenodd" clip-rule="evenodd" d="M30.218 31.092C30 31.5198 30 32.0799 30 33.2V37.8C30 38.9201 30 39.4802 30.218 39.908C30.4097 40.2843 30.7157 40.5903 31.092 40.782C31.5198 41 32.0799 41 33.2 41H37.8C38.9201 41 39.4802 41 39.908 40.782C40.2843 40.5903 40.5903 40.2843 40.782 39.908C41 39.4802 41 38.9201 41 37.8V33.2C41 32.0799 41 31.5198 40.782 31.092C40.5903 30.7157 40.2843 30.4097 39.908 30.218C39.4802 30 38.9201 30 37.8 30H33.2C32.0799 30 31.5198 30 31.092 30.218C30.7157 30.4097 30.4097 30.7157 30.218 31.092ZM31.109 31.546C31 31.7599 31 32.0399 31 32.6V38.4C31 38.9601 31 39.2401 31.109 39.454C31.2049 39.6422 31.3578 39.7951 31.546 39.891C31.7599 40 32.0399 40 32.6 40H38.4C38.9601 40 39.2401 40 39.454 39.891C39.6422 39.7951 39.7951 39.6422 39.891 39.454C40 39.2401 40 38.9601 40 38.4V32.6C40 32.0399 40 31.7599 39.891 31.546C39.7951 31.3578 39.6422 31.2049 39.454 31.109C39.2401 31 38.9601 31 38.4 31H32.6C32.0399 31 31.7599 31 31.546 31.109C31.3578 31.2049 31.2049 31.3578 31.109 31.546Z" fill="#3C3C3C"/>
-        </svg>
+    </svg>
+    
+    <!-- 吸附光标 -->
+    <svg id="snap-cursor" class="cursor" width="71" height="71" viewBox="0 0 71 71" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+      <path d="M36 7L36 4L35 4L35 7L36 7Z" fill="white"/>
+      <path d="M64 36L67 36L67 35L64 35L64 36Z" fill="white"/>
+      <path d="M36 18V13H35V18H36Z" fill="white"/>
+      <path d="M53 36L58 36L58 35L53 35L53 36Z" fill="white"/>
+      <path d="M36 30V24H35V30H36Z" fill="white"/>
+      <path d="M41 36L47 36L47 35L41 35L41 36Z" fill="white"/>
+      <path d="M36 13V8L35 8V13H36Z" fill="#3C3C3C"/>
+      <path d="M58 36L63 36L63 35L58 35L58 36Z" fill="#3C3C3C"/>
+      <path d="M35 0L35 3L36 3L36 -8.74228e-08L35 0Z" fill="#3C3C3C"/>
+      <path d="M71 35L68 35L68 36L71 36L71 35Z" fill="#3C3C3C"/>
+      <path d="M36 24V18H35V24H36Z" fill="#3C3C3C"/>
+      <path d="M47 36L53 36L53 35L47 35L47 36Z" fill="#3C3C3C"/>
+      <path d="M35 64L35 67L36 67L36 64L35 64Z" fill="white"/>
+      <path d="M7 35L4 35L4 36L7 36L7 35Z" fill="white"/>
+      <path d="M35 53L35 58L36 58L36 53L35 53Z" fill="white"/>
+      <path d="M18 35L13 35L13 36L18 36L18 35Z" fill="white"/>
+      <path d="M35 41L35 47L36 47L36 41L35 41Z" fill="white"/>
+      <path d="M30 35L24 35L24 36L30 36L30 35Z" fill="white"/>
+      <path d="M35 58L35 63L36 63L36 58L35 58Z" fill="#3C3C3C"/>
+      <path d="M13 35L8 35L8 36L13 36L13 35Z" fill="#3C3C3C"/>
+      <path d="M36 71L36 68H35L35 71H36Z" fill="#3C3C3C"/>
+      <path d="M0 36L3 36L3 35L4.37114e-08 35L0 36Z" fill="#3C3C3C"/>
+      <path d="M35 47L35 53L36 53L36 47L35 47Z" fill="#3C3C3C"/>
+      <path d="M24 35L18 35L18 36L24 36L24 35Z" fill="#3C3C3C"/>
+      <path d="M37.2002 29C38.8802 29 39.7206 29.0002 40.3623 29.3271C40.9265 29.6147 41.3853 30.0735 41.6729 30.6377C41.9998 31.2794 42 32.1198 42 33.7998V37.2002C42 38.8802 41.9998 39.7206 41.6729 40.3623C41.3853 40.9265 40.9265 41.3853 40.3623 41.6729C39.7206 41.9998 38.8802 42 37.2002 42H33.7998C32.1198 42 31.2794 41.9998 30.6377 41.6729C30.0735 41.3853 29.6147 40.9265 29.3271 40.3623C29.0002 39.7206 29 38.8802 29 37.2002V33.7998C29 32.1198 29.0002 31.2794 29.3271 30.6377C29.6147 30.0735 30.0735 29.6147 30.6377 29.3271C31.2794 29.0002 32.1198 29 33.7998 29H37.2002ZM33.2002 30C32.0801 30 31.5196 29.9998 31.0918 30.2178C30.7155 30.4095 30.4095 30.7155 30.2178 31.0918C29.9998 31.5196 30 32.0801 30 33.2002V37.7998C30 38.9199 29.9998 39.4804 30.2178 39.9082C30.4095 40.2845 30.7155 40.5905 31.0918 40.7822C31.5196 41.0002 32.0801 41 33.2002 41H37.7998C38.9199 41 39.4804 41.0002 39.9082 40.7822C40.2845 40.5905 40.5905 40.2845 40.7822 39.9082C41.0002 39.4804 41 38.9199 41 37.7998V33.2002C41 32.0801 41.0002 31.5196 40.7822 31.0918C40.5905 30.7155 40.2845 30.4095 39.9082 30.2178C39.4804 29.9998 38.9199 30 37.7998 30H33.2002Z" fill="#0696D7" fill-opacity="0.35"/>
+      <path d="M37.7998 30C38.9199 30 39.4804 29.9998 39.9082 30.2178C40.2845 30.4095 40.5905 30.7155 40.7822 31.0918C41.0002 31.5196 41 32.0801 41 33.2002V37.7998C41 38.9199 41.0002 39.4804 40.7822 39.9082C40.5905 40.2845 40.2845 40.5905 39.9082 40.7822C39.4804 41.0002 38.9199 41 37.7998 41H33.2002C32.0801 41 31.5196 41.0002 31.0918 40.7822C30.7155 40.5905 30.4095 40.2845 30.2178 39.9082C29.9998 39.4804 30 38.9199 30 37.7998V33.2002C30 32.0801 29.9998 31.5196 30.2178 31.0918C30.4095 30.7155 30.7155 30.4095 31.0918 30.2178C31.5196 29.9998 32.0801 30 33.2002 30H37.7998ZM32.5996 31C32.0398 31 31.7598 31.0004 31.5459 31.1094C31.3579 31.2052 31.2052 31.3579 31.1094 31.5459C31.0004 31.7598 31 32.0398 31 32.5996V38.4004C31 38.9602 31.0004 39.2402 31.1094 39.4541C31.2052 39.6421 31.3579 39.7948 31.5459 39.8906C31.7598 39.9996 32.0398 40 32.5996 40H38.4004C38.9602 40 39.2402 39.9996 39.4541 39.8906C39.6421 39.7948 39.7948 39.6421 39.8906 39.4541C39.9996 39.2402 40 38.9602 40 38.4004V32.5996C40 32.0398 39.9996 31.7598 39.8906 31.5459C39.7948 31.3579 39.6421 31.2052 39.4541 31.1094C39.2402 31.0004 38.9602 31 38.4004 31H32.5996Z" fill="#0696D7"/>
+    </svg>
 
     <div id="grid-container"></div>
 
 
     <script>
+        // 基础配置工厂，用于创建不同方案的配置
+        class ProposalConfigFactory {
+            static createConfig(proposalType) {
+                switch(proposalType) {
+                    case 'proposal1':
+                        return {
+                            // Proposal 1 的配置
+                            gridSize: 25,
+                            snapThreshold: 8,
+                            shapes: {
+                                square: {
+                                    initMessages: {
+                                        first: 'Draw a rectangle: touch and move the cursor, lift your finger to place the first point',
+                                        firstPlaced: 'The first point has been placed, touch and move again to place the second point',
+                                        completed: 'The rectangle has been completed, touch and move again to place the first point of the new rectangle'
+                                    },
+                                    style: {
+                                        border: '1px solid #76C7EB',
+                                        background: 'rgba(137, 205, 236, 0.15)'
+                                    }
+                                },
+                                circle: {
+                                    initMessages: {
+                                        first: 'Draw a circle: touch and move the cursor, lift your finger to place the center',
+                                        firstPlaced: 'The center has been placed, touch and move again to determine the radius',
+                                        completed: 'The circle has been completed, touch and move again to place the center of the new circle'
+                                    },
+                                    style: {
+                                        border: '1px solid #76C7EB',
+                                        background: 'rgba(137, 205, 236, 0.15)'
+                                    }
+                                },
+                                line: {
+                                    initMessages: {
+                                        first: 'Draw a line: touch and move the cursor, lift your finger to place the starting point',
+                                        firstPlaced: 'The starting point has been placed, touch and move again to place the end point',
+                                        completed: 'The line has been completed, touch and move again to place the starting point of the new line'
+                                    },
+                                    style: {
+                                        color: '#76C7EB',
+                                        width: '2px'
+                                    }
+                                }
+                            }
+                        };
+                    case 'proposal2':
+                        return {
+                            // Proposal 2 的配置，稍后会根据需求填充具体内容
+                            // 暂时使用与proposal1相同的配置
+                            gridSize: 25,
+                            snapThreshold: 8,
+                            shapes: {
+                                square: {
+                                    initMessages: {
+                                        first: 'Draw a rectangle: touch and move the cursor, lift your finger to place the first point',
+                                        firstPlaced: 'The first point has been placed, touch and move again to place the second point',
+                                        completed: 'The rectangle has been completed, touch and move again to place the first point of the new rectangle'
+                                    },
+                                    style: {
+                                        border: '1px solid #76C7EB',
+                                        background: 'rgba(137, 205, 236, 0.15)'
+                                    }
+                                },
+                                circle: {
+                                    initMessages: {
+                                        first: 'Draw a circle: touch and move the cursor, lift your finger to place the center',
+                                        firstPlaced: 'The center has been placed, touch and move again to determine the radius',
+                                        completed: 'The circle has been completed, touch and move again to place the center of the new circle'
+                                    },
+                                    style: {
+                                        border: '1px solid #76C7EB',
+                                        background: 'rgba(137, 205, 236, 0.15)'
+                                    }
+                                },
+                                line: {
+                                    initMessages: {
+                                        first: 'Draw a line: touch and move the cursor, lift your finger to place the starting point',
+                                        firstPlaced: 'The starting point has been placed, touch and move again to place the end point',
+                                        completed: 'The line has been completed, touch and move again to place the starting point of the new line'
+                                    },
+                                    style: {
+                                        color: '#76C7EB',
+                                        width: '2px'
+                                    }
+                                }
+                            }
+                        };
+                    default:
+                        throw new Error(`Unknown proposal type: ${proposalType}`);
+                }
+            }
+        }
+
         // 形状绘制管理器类
         class ShapeDrawer {
             constructor() {
                 // DOM元素
                 this.cursor = document.getElementById('cursor');
+                this.snapCursor = document.getElementById('snap-cursor');
                 this.snackbar = document.querySelector('.snackbar');
+                this.proposalDropdown = document.getElementById('proposal-dropdown');
                 
                 // 状态变量
                 this.start = null;
@@ -306,11 +467,60 @@
                 this.firstCornerPlaced = false;
                 this.shapeCount = 0;
                 this.currentShape = null;
-                this.activeShape = null; // 当前激活的形状类型: 'square', 'circle', 'line'
+                this.activeShape = null;
+                
+                // 初始化当前方案配置
+                this.currentProposal = this.proposalDropdown.value;
+                this.updateConfig();
+                
+                // 网格吸附相关
+                this.isSnapping = false; // 是否正在吸附
                 
                 // 初始化
                 this.setupEventListeners();
                 this.positionCursorAtCenter();
+            }
+            
+            // 更新当前配置
+            updateConfig() {
+                const config = ProposalConfigFactory.createConfig(this.currentProposal);
+                this.config = config;
+                this.gridSize = config.gridSize;
+                this.snapThreshold = config.snapThreshold;
+                
+                // 如果需要，可以在这里更新其他与方案相关的配置
+                
+                // 重绘网格
+                this.redrawGrid();
+            }
+
+            // 重绘网格
+            redrawGrid() {
+                const gridContainer = document.getElementById('grid-container');
+                gridContainer.innerHTML = ''; // 清空现有网格
+                
+                // 固定网格大小
+                const squareSize = this.gridSize;
+                
+                const squaresPerRow = Math.ceil(window.innerWidth / squareSize);
+                const squaresPerColumn = Math.ceil(window.innerHeight / squareSize);
+
+                // 创建网格
+                for (let y = 0; y < squaresPerColumn; y++) {
+                    for (let x = 0; x < squaresPerRow; x++) {
+                        const div = document.createElement('div');
+                        div.classList.add('grid-item');
+                        if ((x + 1) % 5 === 0) div.classList.add('thick-right');
+                        if ((y + 1) % 5 === 0) div.classList.add('thick-bottom');
+                        if (x === Math.floor(squaresPerRow / 2)) div.classList.add('middle-vertical');
+                        if (y === Math.floor(squaresPerColumn / 2)) div.classList.add('middle-horizontal');
+                        div.style.width = `${squareSize}px`;
+                        div.style.height = `${squareSize}px`;
+                        div.style.left = `${x * squareSize}px`;
+                        div.style.top = `${y * squareSize}px`;
+                        gridContainer.appendChild(div);
+                    }
+                }
             }
             
             // 设置事件监听器
@@ -322,12 +532,30 @@
                     });
                 });
                 
+                // 方案下拉菜单变更事件
+                this.proposalDropdown.addEventListener('change', () => {
+                    this.currentProposal = this.proposalDropdown.value;
+                    this.updateConfig();
+                    
+                    // 更新提示信息
+                    this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
+                    
+                    // 重置工具选择
+                    document.querySelectorAll('.icon-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.activeShape = null;
+                    this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
+                });
+                
                 // 触摸事件
                 document.addEventListener('touchstart', (e) => {
                     // 检查触摸点是否在工具按钮上，如果是则不阻止默认行为
                     const target = e.target;
-                    if (target.closest('.icon-button') || target.classList.contains('icon-svg')) {
-                        return; // 允许按钮的默认点击行为
+                    if (target.closest('.icon-button') || target.classList.contains('icon-svg') || 
+                        target.closest('.proposal-selector')) {
+                        return; // 允许按钮和下拉菜单的默认点击行为
                     }
                     this.handleTouchStart(e);
                 });
@@ -335,8 +563,9 @@
                 document.addEventListener('touchend', (e) => {
                     // 同样检查触摸结束点是否在按钮上
                     const target = e.target;
-                    if (target.closest('.icon-button') || target.classList.contains('icon-svg')) {
-                        return; // 允许按钮的默认点击行为
+                    if (target.closest('.icon-button') || target.classList.contains('icon-svg') || 
+                        target.closest('.proposal-selector')) {
+                        return; // 允许按钮和下拉菜单的默认点击行为
                     }
                     this.handleTouchEnd(e);
                 });
@@ -349,7 +578,8 @@
                 // 阻止页面拖动刷新 - 只对触摸事件
                 document.addEventListener('touchmove', (e) => {
                     // 不要阻止工具栏上的触摸移动
-                    if (e.target.closest('.toolbar') || e.target.closest('.icon-button')) {
+                    if (e.target.closest('.toolbar') || e.target.closest('.icon-button') || 
+                        e.target.closest('.proposal-selector')) {
                         return;
                     }
                     e.preventDefault();
@@ -358,10 +588,17 @@
             
             // 将光标定位到屏幕中央
             positionCursorAtCenter() {
-                this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
-                this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+                const centerY = (window.innerHeight / 2 - 35);
+                const centerX = (window.innerWidth / 2 - 35);
+                
+                this.cursor.style.top = centerY + 'px';
+                this.cursor.style.left = centerX + 'px';
+                this.snapCursor.style.top = centerY + 'px';
+                this.snapCursor.style.left = centerX + 'px';
+                
                 // 初始不显示光标，只有选择工具后才显示
                 this.cursor.style.display = 'none';
+                this.snapCursor.style.display = 'none';
                 
                 this.snackbar.style.display = 'block';
                 this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
@@ -397,7 +634,8 @@
                 if (button.classList.contains('active')) {
                     button.classList.remove('active');
                     this.activeShape = null;
-                    this.cursor.style.display = 'none'; // 取消选择时隐藏光标
+                    this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
                     this.snackbar.innerHTML = '<p>Select a drawing tool</p>';
                 } else {
                     // 移除其他按钮的active状态
@@ -412,18 +650,21 @@
                     const shapeTypes = ['square', 'circle', 'line'];
                     this.activeShape = shapeTypes[index];
                     
-                    // 更新提示信息
-                    const tipMessages = {
-                        'square': 'Draw a rectangle: touch and move the cursor, lift your finger to place the first point',
-                        'circle': 'Draw a circle: touch and move the cursor, lift your finger to place the center',
-                        'line': 'Draw a line: touch and move the cursor, lift your finger to place the starting point'
-                    };
-                    this.snackbar.innerHTML = `<p>${tipMessages[this.activeShape]}</p>`;
+                    // 更新提示信息 - 使用配置中的消息
+                    const tipMessage = this.config.shapes[this.activeShape].initMessages.first;
+                    this.snackbar.innerHTML = `<p>${tipMessage}</p>`;
                     
-                    // 选择工具后，在屏幕中央显示光标
-                    this.cursor.style.top = (window.innerHeight / 2 - 35) + 'px';
-                    this.cursor.style.left = (window.innerWidth / 2 - 35) + 'px';
+                    // 选择工具后，在屏幕中央显示默认光标
+                    const centerY = (window.innerHeight / 2 - 35);
+                    const centerX = (window.innerWidth / 2 - 35);
+                    
+                    this.cursor.style.top = centerY + 'px';
+                    this.cursor.style.left = centerX + 'px';
+                    this.snapCursor.style.top = centerY + 'px';
+                    this.snapCursor.style.left = centerX + 'px';
+                    
                     this.cursor.style.display = 'block';
+                    this.snapCursor.style.display = 'none';
                 }
             }
             
@@ -432,6 +673,7 @@
                 // 检查位置是否在工具栏区域
                 if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
                     this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
                     return;
                 }
                 
@@ -456,29 +698,86 @@
                 }
             }
             
-            // 新增：处理鼠标移动事件
+            // 修改：计算最近的网格点，只吸附到交叉点
+            getNearestGridPoint(x, y) {
+                // 计算最近的网格交叉点坐标
+                const nearestX = Math.round(x / this.gridSize) * this.gridSize;
+                const nearestY = Math.round(y / this.gridSize) * this.gridSize;
+                
+                // 计算到最近网格交叉点的欧几里德距离
+                const distance = Math.sqrt(
+                    Math.pow(x - nearestX, 2) + 
+                    Math.pow(y - nearestY, 2)
+                );
+                
+                // 如果距离小于阈值，返回网格交叉点坐标
+                if (distance <= this.snapThreshold) {
+                    return {
+                        x: nearestX,
+                        y: nearestY,
+                        isSnapping: true
+                    };
+                }
+                
+                // 不符合吸附条件，返回原始坐标
+                return { x, y, isSnapping: false };
+            }
+            
+            // 修改：更新光标吸附状态 - 只切换光标样式，不修改提示信息
+            updateSnappingState(isSnapping) {
+                if (isSnapping !== this.isSnapping) {
+                    this.isSnapping = isSnapping;
+                    
+                    if (isSnapping) {
+                        // 切换到吸附光标
+                        this.cursor.style.display = 'none';
+                        this.snapCursor.style.display = 'block';
+                    } else {
+                        // 切换到标准光标
+                        this.cursor.style.display = 'block';
+                        this.snapCursor.style.display = 'none';
+                    }
+                }
+            }
+            
+            // 修改：处理鼠标移动事件
             handleMouseMove(e) {
                 // 检查位置是否在工具栏区域
                 if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
                     this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
                     return;
                 }
                 
                 // 如果没有选择绘图工具，不执行操作但仍然显示光标
                 if (!this.activeShape) {
-                    return; // 未选择工具时不显示光标
+                    return;
                 }
                 
-                // 光标跟随鼠标移动，向上偏移60像素
-                this.cursor.style.top = (e.clientY - 35 - 60) + 'px';
-                this.cursor.style.left = (e.clientX - 35) + 'px';
-                this.cursor.style.display = 'block';
+                // 计算鼠标位置（考虑工具栏偏移）
+                const mouseX = e.clientX;
+                const mouseY = e.clientY - 60; // 减去工具栏高度
+                
+                // 获取最近的网格点
+                const { x: snappedX, y: snappedY, isSnapping } = this.getNearestGridPoint(mouseX, mouseY);
+                
+                // 更新光标位置（两种光标都更新位置）
+                const cursorTop = (snappedY - 35) + 'px';
+                const cursorLeft = (snappedX - 35) + 'px';
+                
+                this.cursor.style.top = cursorTop;
+                this.cursor.style.left = cursorLeft;
+                this.snapCursor.style.top = cursorTop;
+                this.snapCursor.style.left = cursorLeft;
+                
+                // 更新吸附状态（显示相应的光标）
+                this.updateSnappingState(isSnapping);
                 
                 // 如果正在绘制形状，根据不同形状类型进行处理
                 if (this.isDrawing && this.start) {
-                    // 使用光标位置（保持偏移）作为当前点
-                    const currentX = parseInt(this.cursor.style.left) + 35;
-                    const currentY = parseInt(this.cursor.style.top) + 35;
+                    // 使用吸附后的位置作为当前点
+                    const currentX = snappedX;
+                    const currentY = snappedY;
                     
                     switch (this.activeShape) {
                         case 'square':
@@ -501,16 +800,31 @@
                 // 如果触摸在工具栏区域，隐藏光标
                 if (this.isInToolbarArea(e.target)) {
                     this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
                     return;
                 }
                 
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
-                // 光标跟随手指移动，向上偏移60像素
-                this.cursor.style.top = (e.touches[0].clientY - 35 - 60) + 'px';
-                this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
-                this.cursor.style.display = 'block';
+                // 计算触摸位置（考虑工具栏偏移）
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY - 60; // 减去工具栏高度
+                
+                // 获取最近的网格点
+                const { x: snappedX, y: snappedY, isSnapping } = this.getNearestGridPoint(touchX, touchY);
+                
+                // 更新光标位置（两种光标都更新位置）
+                const cursorTop = (snappedY - 35) + 'px';
+                const cursorLeft = (snappedX - 35) + 'px';
+                
+                this.cursor.style.top = cursorTop;
+                this.cursor.style.left = cursorLeft;
+                this.snapCursor.style.top = cursorTop;
+                this.snapCursor.style.left = cursorLeft;
+                
+                // 更新吸附状态（显示相应的光标）
+                this.updateSnappingState(isSnapping);
                 
                 // 如果是第二次触摸且第一个点已经放置，准备绘制形状
                 if (this.firstCornerPlaced) {
@@ -525,29 +839,44 @@
                 }
             }
             
-            // 处理触摸移动事件
+            // 修改：处理触摸移动事件
             handleTouchMove(e) {
                 e.preventDefault();
                 
                 // 如果触摸在工具栏区域，隐藏光标
                 if (this.isInToolbarArea(e.target)) {
                     this.cursor.style.display = 'none';
+                    this.snapCursor.style.display = 'none';
                     return;
                 }
                 
                 // 如果没有选择绘图工具，不执行操作
                 if (!this.activeShape) return;
                 
-                // 光标跟随手指移动，向上偏移60像素
-                this.cursor.style.top = (e.touches[0].clientY - 35 - 60) + 'px';
-                this.cursor.style.left = (e.touches[0].clientX - 35) + 'px';
-                this.cursor.style.display = 'block';
+                // 计算触摸位置（考虑工具栏偏移）
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY - 60; // 减去工具栏高度
+                
+                // 获取最近的网格点
+                const { x: snappedX, y: snappedY, isSnapping } = this.getNearestGridPoint(touchX, touchY);
+                
+                // 更新光标位置（两种光标都更新位置）
+                const cursorTop = (snappedY - 35) + 'px';
+                const cursorLeft = (snappedX - 35) + 'px';
+                
+                this.cursor.style.top = cursorTop;
+                this.cursor.style.left = cursorLeft;
+                this.snapCursor.style.top = cursorTop;
+                this.snapCursor.style.left = cursorLeft;
+                
+                // 更新吸附状态（显示相应的光标）
+                this.updateSnappingState(isSnapping);
                 
                 // 如果正在绘制形状，根据不同形状类型进行处理
                 if (this.isDrawing && this.start) {
-                    // 使用光标位置（保持偏移）作为当前点
-                    const currentX = parseInt(this.cursor.style.left) + 35;
-                    const currentY = parseInt(this.cursor.style.top) + 35;
+                    // 使用吸附后的位置作为当前点
+                    const currentX = snappedX;
+                    const currentY = snappedY;
                     
                     switch (this.activeShape) {
                         case 'square':
@@ -578,10 +907,9 @@
                     this.currentShape.style.position = 'absolute';
                     document.body.appendChild(this.currentShape);
                     
-                    // 记录起始点 - 直接使用光标中心位置，保持偏移
-                    const cursorX = parseInt(this.cursor.style.left) + 35;
-                    // 不再加回60px偏移，直接使用光标位置
-                    const cursorY = parseInt(this.cursor.style.top) + 35;
+                    // 记录起始点 - 使用当前显示的光标位置
+                    const cursorX = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const cursorY = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
                     this.start = { x: cursorX, y: cursorY };
                     
                     // 添加起始点标记
@@ -602,12 +930,9 @@
                     
                     this.firstCornerPlaced = true;
                     
-                    const firstPointPlacedMessages = {
-                        'square': 'The first point has been placed, touch and move again to place the second point',
-                        'circle': 'The center has been placed, touch and move again to determine the radius',
-                        'line': 'The starting point has been placed, touch and move again to place the end point'
-                    };
-                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
+                    // 使用配置中的消息
+                    const firstPointPlacedMessage = this.config.shapes[this.activeShape].initMessages.firstPlaced;
+                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessage}</p>`;
                 } 
                 // 第二次抬起，完成形状
                 else if (this.isDrawing) {
@@ -615,8 +940,8 @@
                     this.firstCornerPlaced = false;
                     
                     // 获取最后一个点的位置
-                    const endX = parseInt(this.cursor.style.left) + 35;
-                    const endY = parseInt(this.cursor.style.top) + 35;
+                    const endX = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const endY = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
                     
                     // 添加结束点标记（除了圆形外，因为圆形已经有中心点标记）
                     if (this.activeShape !== 'circle') {
@@ -626,10 +951,10 @@
                     // 根据形状类型设置最终样式
                     switch (this.activeShape) {
                         case 'square':
-                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
+                            this.currentShape.style.background = this.config.shapes.square.style.background;
                             break;
                         case 'circle':
-                            this.currentShape.style.background = 'rgba(6, 150, 215, 0.3)';
+                            this.currentShape.style.background = this.config.shapes.circle.style.background;
                             break;
                         case 'line':
                             // 线条已经有了样式
@@ -639,16 +964,13 @@
                     this.currentShape = null;
                     this.start = null;
                     
-                    const completionMessages = {
-                        'square': 'The rectangle has been completed, touch and move again to place the first point of the new rectangle',
-                        'circle': 'The circle has been completed, touch and move again to place the center of the new circle',
-                        'line': 'The line has been completed, touch and move again to place the starting point of the new line'
-                    };
-                    this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
+                    // 使用配置中的消息
+                    const completionMessage = this.config.shapes[this.activeShape].initMessages.completed;
+                    this.snackbar.innerHTML = `<p>${completionMessage}</p>`;
                 }
             }
             
-            // 新增：处理鼠标松开事件
+            // 修改：处理鼠标松开事件
             handleMouseUp(e) {
                 // 检查位置是否在工具栏区域
                 if (this.isPositionInToolbarArea(e.clientX, e.clientY) || this.isInToolbarArea(e.target)) {
@@ -666,10 +988,9 @@
                     this.currentShape.style.position = 'absolute';
                     document.body.appendChild(this.currentShape);
                     
-                    // 记录起始点 - 直接使用光标中心位置，保持偏移
-                    const cursorX = parseInt(this.cursor.style.left) + 35;
-                    // 不再加回60px偏移，直接使用光标位置
-                    const cursorY = parseInt(this.cursor.style.top) + 35;
+                    // 记录起始点 - 使用当前显示的光标位置
+                    const cursorX = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const cursorY = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
                     this.start = { x: cursorX, y: cursorY };
                     
                     // 添加起始点标记
@@ -690,12 +1011,9 @@
                     
                     this.firstCornerPlaced = true;
                     
-                    const firstPointPlacedMessages = {
-                        'square': 'The first point has been placed, click and move to place the second point',
-                        'circle': 'The center has been placed, click and move to determine the radius',
-                        'line': 'The starting point has been placed, click and move to place the end point'
-                    };
-                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessages[this.activeShape]}</p>`;
+                    // 使用配置中的消息
+                    const firstPointPlacedMessage = this.config.shapes[this.activeShape].initMessages.firstPlaced;
+                    this.snackbar.innerHTML = `<p>${firstPointPlacedMessage}</p>`;
                 } 
                 // 第二次抬起，完成形状
                 else if (this.isDrawing) {
@@ -703,8 +1021,8 @@
                     this.firstCornerPlaced = false;
                     
                     // 获取最后一个点的位置
-                    const endX = parseInt(this.cursor.style.left) + 35;
-                    const endY = parseInt(this.cursor.style.top) + 35;
+                    const endX = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.left) + 35;
+                    const endY = parseInt((this.isSnapping ? this.snapCursor : this.cursor).style.top) + 35;
                     
                     // 添加结束点标记（除了圆形外，因为圆形已经有中心点标记）
                     if (this.activeShape !== 'circle') {
@@ -714,10 +1032,10 @@
                     // 根据形状类型设置最终样式
                     switch (this.activeShape) {
                         case 'square':
-                            this.currentShape.style.background = 'rgba(137, 205, 236, 0.15)';
+                            this.currentShape.style.background = this.config.shapes.square.style.background;
                             break;
                         case 'circle':
-                            this.currentShape.style.background = 'rgba(137, 205, 236, 0.15)';
+                            this.currentShape.style.background = this.config.shapes.circle.style.background;
                             break;
                         case 'line':
                             // 线条已经有了样式
@@ -727,12 +1045,9 @@
                     this.currentShape = null;
                     this.start = null;
                     
-                    const completionMessages = {
-                        'square': 'The rectangle has been completed, click and move to place the first point of the new rectangle',
-                        'circle': 'The circle has been completed, click and move to place the center of the new circle',
-                        'line': 'The line has been completed, click and move to place the starting point of the new line'
-                    };
-                    this.snackbar.innerHTML = `<p>${completionMessages[this.activeShape]}</p>`;
+                    // 使用配置中的消息
+                    const completionMessage = this.config.shapes[this.activeShape].initMessages.completed;
+                    this.snackbar.innerHTML = `<p>${completionMessage}</p>`;
                 }
             }
             
@@ -746,7 +1061,6 @@
                 this.currentShape.style.display = 'block';
                 this.currentShape.style.border = '1px solid #C7C7C7';
                 this.currentShape.style.boxSizing = 'border-box';
-                //this.currentShape.style.background = 'rgba(6, 150, 215, 0.1)';
             }
             
             // 更新矩形大小
@@ -756,7 +1070,7 @@
                 
                 this.currentShape.style.width = Math.abs(width) + 'px';
                 this.currentShape.style.height = Math.abs(height) + 'px';
-                this.currentShape.style.border = '1px solid #76C7EB';
+                this.currentShape.style.border = this.config.shapes.square.style.border;
                 
                 // 处理负值情况
                 if (width < 0) {
@@ -784,7 +1098,6 @@
                 this.currentShape.style.transform = 'translate(-50%, -50%)';
                 this.currentShape.style.border = '1px solid #C7C7C7';
                 this.currentShape.style.boxSizing = 'border-box';
-                //this.currentShape.style.background = 'rgba(6, 150, 215, 0.1)';
             }
             
             // 更新圆形大小
@@ -798,7 +1111,7 @@
                 // 设置圆的直径
                 this.currentShape.style.width = (radius * 2) + 'px';
                 this.currentShape.style.height = (radius * 2) + 'px';
-                this.currentShape.style.border = '1px solid #76C7EB';
+                this.currentShape.style.border = this.config.shapes.circle.style.border;
             }
             
             // 初始化线条
@@ -807,11 +1120,10 @@
                 this.currentShape.style.left = x + 'px';
                 this.currentShape.style.top = y + 'px';
                 this.currentShape.style.width = '0px';
-                this.currentShape.style.height = '2px'; // 线条宽度
-                this.currentShape.style.backgroundColor = '#76C7EB';
+                this.currentShape.style.height = this.config.shapes.line.style.width; // 线条宽度
+                this.currentShape.style.backgroundColor = this.config.shapes.line.style.color;
                 this.currentShape.style.display = 'block';
                 this.currentShape.style.transformOrigin = 'top left';
-                // this.currentShape.style.opacity = '0.8'; // 线条使用不透明度
             }
             
             // 更新线条
@@ -852,34 +1164,8 @@
             }
         }
 
-        // 格子绘制函数
-        function drawGrid() {
-            const gridContainer = document.getElementById('grid-container');
-            const squareSize = Math.floor(Math.min(window.innerWidth, window.innerHeight) / 35);
-            const squaresPerRow = Math.floor(window.innerWidth / squareSize);
-            const squaresPerColumn = Math.floor(window.innerHeight / squareSize);
-
-            // 创建网格
-            for (let y = 0; y < squaresPerColumn; y++) {
-                for (let x = 0; x < squaresPerRow; x++) {
-                    const div = document.createElement('div');
-                    div.classList.add('grid-item');
-                    if ((x + 1) % 5 === 0) div.classList.add('thick-right');
-                    if ((y + 1) % 5 === 0) div.classList.add('thick-bottom');
-                    if (x === Math.floor(squaresPerRow / 2)) div.classList.add('middle-vertical');
-                    if (y === Math.floor(squaresPerColumn / 2)) div.classList.add('middle-horizontal');
-                    div.style.width = `${squareSize}px`;
-                    div.style.height = `${squareSize}px`;
-                    div.style.left = `${x * squareSize}px`;
-                    div.style.top = `${y * squareSize}px`;
-                    gridContainer.appendChild(div);
-                }
-            }
-        }
-
         // 窗口加载
         window.onload = function() {
-            drawGrid();
             new ShapeDrawer();
         };
     </script>
